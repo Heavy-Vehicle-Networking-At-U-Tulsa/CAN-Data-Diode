@@ -21,17 +21,17 @@ uint8_t status_byte;
 
 uint8_t SPI_transfer(uint8_t data){
   uint8_t data_in = 0;
-  int8_t i = 7;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
-    while(i >= 0){
-      //mask the bit of interest, shift it to the first position and send it.
-      digitalWrite(DO,((1<<i) & data) >> i) ;
-      digitalWrite(SCK,HIGH); //Clock out the data
-      data_in |= digitalRead(DI) << i; //Bitwise OR to build the input
-      digitalWrite(SCK,LOW); 
-      i--;
-    }
-  }    
+  //Use bitwise ORs and ANDs to set and clear bits directly on the port.
+  for (int8_t i = 0;i<8;i++){
+      //Check to see what the first bit is in the data
+      if ((data & 0x80) == 0x80) PORTB |= 0b00000001; //Set the bit on PB0
+      else PORTB &= 0b11111110; //clear the bit on PB0
+      PORTB |= 0b00000100; //Clock out the data on PB2
+      data <<= 1;
+      data_in <<=1;
+      data_in |= (PORTB & 0x02) >> 1; //Bitwise OR with PB1 to build the input
+      PORTB &= 0b11111011; //Set the ClockPin Low (PB2)     
+    }    
   return data_in;    
 }
 
