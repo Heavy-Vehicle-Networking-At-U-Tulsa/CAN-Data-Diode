@@ -22,7 +22,8 @@ uint8_t status_byte;
 uint8_t SPI_transfer(uint8_t data){
   uint8_t data_in = 0;
   //Use bitwise ORs and ANDs to set and clear bits directly on the port.
-  for (int8_t i = 0;i<8;i++){
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
+    for (int8_t i = 0;i<8;i++){
       //Check to see what the first bit is in the data
       if ((data & 0x80) == 0x80) PORTB |= 0b00000001; //Set the bit on PB0
       else PORTB &= 0b11111110; //clear the bit on PB0
@@ -31,7 +32,8 @@ uint8_t SPI_transfer(uint8_t data){
       data_in <<=1;
       data_in |= (PORTB & 0x02) >> 1; //Bitwise OR with PB1 to build the input
       PORTB &= 0b11111011; //Set the ClockPin Low (PB2)     
-    }    
+    }
+  }    
   return data_in;    
 }
 
