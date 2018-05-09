@@ -5,6 +5,7 @@
 #define SCK 7
 #define DO 9 
 #define DI 8
+#define SILENT 11
 
 /*
  *   Begin mt
@@ -916,6 +917,8 @@ void setRegister(uint8_t address){
 byte vin[3] = {0x00, 0xE5, 0xFE};
 byte hours[3] = {0x00, 0xE5, 0xFE};
 uint32_t reqID = 0x18EAFFF9;
+
+
 void setup() {
 
   mcp25625_reset();
@@ -961,13 +964,22 @@ void setup() {
 
 void loop()
 {
-  //ELD
-
-  //Requestor Node
-
+  //uncomment whichever you are using
+  
+  /*ELD
+  if(96<=readRegister(0x1C)){
+    digitalWrite(SILENT, LOW);
+    delay(500);
+    digitalWrite(SILENT, HIGH);
+  }
+  */
+  
+  /*Requestor Node
   delay(150000)
   Can0.sendMsgBuf(reqID, 1, 3, vin);
   delay(150000)
   Can0.sendMsgBuf(reqID, 1, 3, hours);
+  */
+
 }
 
