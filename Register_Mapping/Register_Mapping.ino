@@ -185,7 +185,7 @@ void mcp25625_reset(){                                        //reset the CAN co
 void mcp25625_setCANCTRL_Mode(uint8_t newmode){
   uint8_t i;
   mcp25625_modifyRegister(MCP_CANCTRL, MODE_MASK, newmode);
-  i = mcp2515_readRegister(MCP_CANCTRL);
+  i = mcp25625_readRegister(MCP_CANCTRL);
   //need to determine a checking system that does not rely on Serial Com. 
 }
 
@@ -284,22 +284,57 @@ void mcp25625_configRate(uint8_t canSpeed){
     }
 
     if (set) {
-        mcp2515_setRegister(MCP_CNF1, cfg1);
-        mcp2515_setRegister(MCP_CNF2, cfg2);
-        mcp2515_setRegister(MCP_CNF3, cfg3);
+        mcp25625_setRegister(MCP_CNF1, cfg1);
+        mcp25625_setRegister(MCP_CNF2, cfg2);
+        mcp25625_setRegister(MCP_CNF3, cfg3);
 }
 
 void mcp25625_initCANBuffers(){
-  //initialize the CAN buffers
+  uint8_t i, a1, a2, a3;
+    
+    uint8_t std = 0;               
+    uint8_t ext = 1;
+    uint32_t ulMask = 0x00, ulFilt = 0x00;
+
+    mcp25625_write_id(MCP_RXM0SIDH, ext, ulMask);      /*Set both masks to 0           */
+    mcp25625_write_id(MCP_RXM1SIDH, ext, ulMask);      /*Mask register ignores ext bit */
+    
+                                                       /* Set all filters to 0         */
+    mcp25625_write_id(MCP_RXF0SIDH, ext, ulFilt);      /* RXB0: extended               */
+    mcp25625_write_id(MCP_RXF1SIDH, std, ulFilt);      /* RXB1: standard               */
+    mcp25625_write_id(MCP_RXF2SIDH, ext, ulFilt);      /* RXB2: extended               */
+    mcp25625_write_id(MCP_RXF3SIDH, std, ulFilt);      /* RXB3: standard               */
+    mcp25625_write_id(MCP_RXF4SIDH, ext, ulFilt);
+    mcp25625_write_id(MCP_RXF5SIDH, std, ulFilt);
+    //makes sure that nothing is preset in the registers to be sent out. 
+    a1 = MCP_TXB0CTRL;
+    a2 = MCP_TXB1CTRL;
+    a3 = MCP_TXB2CTRL;
+    for (i = 0; i < 14; i++) {                         /* in-buffer loop               */
+        mcp25625_setRegister(a1, 0);
+        mcp25625_setRegister(a2, 0);
+        mcp25625_setRegister(a3, 0);
+        a1++;
+        a2++;
+        a3++;
+    }
+    mcp25625_setRegister(MCP_RXB0CTRL, 0);
+    mcp25625_setRegister(MCP_RXB1CTRL, 0);
+}
 }
 
-void mcp25625_setRegisters(args){
+void mcp25625_setRegister(args){
   //copy this over. 
 }
 
 void mcp25625_modifyRegister(args){
   //copy this over too. 
 }
+
+void mcp25625_write_id(args){
+  //more shit.
+}
+
 void mcp25625_init(uint8_t canSpeed){
     mcp25625_reset();
     mcp25625_setCANCTRL_Mode(MODE_CONFIG);
@@ -371,7 +406,7 @@ byte readRegister(uint8_t address){
   return incoming;
 }
 
-void setRegisters(uint8_t address){
+void setRegister(uint8_t address){
   digitalWrite(CS, LOW);
   SPI_transfer(0x02);
   SPI_transfer(address);
