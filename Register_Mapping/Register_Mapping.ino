@@ -1,9 +1,3 @@
-/*
-Set MCP25625 PRescaler
-https://github.com/SpenceKonde/ATTinyCore/blob/master/avr/extras/ATtiny_x61.md
- */
-
-
 //These are the pins used
 #define GREEN 10
 #define RED 14
@@ -82,6 +76,25 @@ https://github.com/SpenceKonde/ATTinyCore/blob/master/avr/extras/ATtiny_x61.md
 #define MCP_RESET           0xC0
 //End of commands
 
+//CANCTRL Modes
+#define MODE_NORMAL     0x00
+#define MODE_SLEEP      0x20
+#define MODE_LOOPBACK   0x40
+#define MODE_LISTENONLY 0x60
+#define MODE_CONFIG     0x80
+#define MODE_POWERUP    0xE0
+#define MODE_MASK       0xE0
+#define ABORT_TX        0x10
+#define MODE_ONESHOT    0x08
+#define CLKOUT_ENABLE   0x04
+#define CLKOUT_DISABLE  0x00
+#define CLKOUT_PS1      0x00
+#define CLKOUT_PS2      0x01
+#define CLKOUT_PS4      0x02
+#define CLKOUT_PS8      0x03
+//End of controller modes
+
+
 uint8_t counter = 0;
 
 uint8_t SPI_transfer(uint8_t data){
@@ -102,6 +115,41 @@ uint8_t SPI_transfer(uint8_t data){
   digitalWrite(RED,LOW); 
       
   return data_in;    
+}
+
+void mcp25625_reset(){
+  //need to add reset command structure here. 
+}
+
+uint8_t mcp25625_setCANCTRL_Mode(uint8_t mode){
+  //need to add setting can controller mode fuction here. 
+  //needs to return a value; needs to be 0 to move on
+}
+
+void mcp25625_configRate(uint8_t speeds){
+  //write a function to determine baudrate. 
+}
+
+void mcp25625_initCANBuffers(){
+  //initialize the CAN buffers
+}
+
+void mcp25625_setRegisters(args){
+  //copy this over. 
+}
+
+void mcp25625_modifyRegisters(args){
+  //copy this over too. 
+}
+void mcp25625_init(uint8_t canSpeed){
+    mcp25625_reset();
+    mcp25625_setCANCTRL_Mode(MODE_CONFIG);
+    mcp25625_configRate(canSpeed))
+    mcp25625_initCANBuffers();
+    mcp25625_setRegister(MCP_CANINTE, MCP_RX0IF | MCP_RX1IF)
+    mcp25625_modifyRegister(MCP_RXB0CTRL, MCP_RXB_RX_MASK | MCP_RXB_BUKT_MASK, MCP_RXB_RX_STDEXT | MCP_RXB_BUKT_MASK );
+    mcp25625_modifyRegister(MCP_RXB1CTRL, MCP_RXB_RX_MASK, MCP_RXB_RX_STDEXT);
+    mcp25625_setCANCTRL_Mode(MODE_NORMAL);                                                                
 }
 
 void flash(uint8_t ledPin){
