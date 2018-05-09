@@ -323,12 +323,21 @@ void mcp25625_initCANBuffers(){
 }
 }
 
-void mcp25625_setRegister(args){
-  //copy this over. 
+void mcp25625_setRegister(uint8_t address, uint8_t values){
+    digitalWrite(CS, LOW);
+    SPI_transfer(MCP_WRITE);
+    SPI_transfer(address);
+    SPI_transfer(value);
+    digitalWrite(CS, HIGH);
 }
 
-void mcp25625_modifyRegister(args){
-  //copy this over too. 
+void mcp25625_modifyRegister(uint8_t address, uint8_t mask, uint8_t data){
+    digitalWrite(CS, LOW);
+    SPI_transfer(MCP_BITMOD);
+    SPI_transfer(address);
+    SPI_transfer(mask);
+    SPI_transfer(data);
+    digitalWrite(CS, HIGH);
 }
 
 void mcp25625_write_id(args){
