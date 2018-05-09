@@ -1,8 +1,3 @@
-/*
-Set MCP25625 PRescaler
-https://github.com/SpenceKonde/ATTinyCore/blob/master/avr/extras/ATtiny_x61.md
- */
-
 //These are the pins used
 #define GREEN 10
 #define RED 14
@@ -10,6 +5,64 @@ https://github.com/SpenceKonde/ATTinyCore/blob/master/avr/extras/ATtiny_x61.md
 #define SCK 7
 #define DO 9 
 #define DI 8
+
+//CAN Speeds
+#define MCP_16MHz_1000kBPS_CFG1 (0x00)
+#define MCP_16MHz_1000kBPS_CFG2 (0xD0)
+#define MCP_16MHz_1000kBPS_CFG3 (0x82)
+
+#define MCP_16MHz_666kBPS_CFG1 (0x00)
+#define MCP_16MHz_666kBPS_CFG2 (0xA8)
+#define MCP_16MHz_666kBPS_CFG3 (0x03)
+
+#define MCP_16MHz_500kBPS_CFG1 (0x00)
+#define MCP_16MHz_500kBPS_CFG2 (0xF0)
+#define MCP_16MHz_500kBPS_CFG3 (0x86)
+
+#define MCP_16MHz_250kBPS_CFG1 (0x41)
+#define MCP_16MHz_250kBPS_CFG2 (0xF1)
+#define MCP_16MHz_250kBPS_CFG3 (0x85)
+
+#define MCP_16MHz_200kBPS_CFG1 (0x01)
+#define MCP_16MHz_200kBPS_CFG2 (0xFA)
+#define MCP_16MHz_200kBPS_CFG3 (0x87)
+
+#define MCP_16MHz_125kBPS_CFG1 (0x03)
+#define MCP_16MHz_125kBPS_CFG2 (0xF0)
+#define MCP_16MHz_125kBPS_CFG3 (0x86)
+
+#define MCP_16MHz_100kBPS_CFG1 (0x03)
+#define MCP_16MHz_100kBPS_CFG2 (0xFA)
+#define MCP_16MHz_100kBPS_CFG3 (0x87)
+
+#define MCP_16MHz_80kBPS_CFG1 (0x03)
+#define MCP_16MHz_80kBPS_CFG2 (0xFF)
+#define MCP_16MHz_80kBPS_CFG3 (0x87)
+
+#define MCP_16MHz_50kBPS_CFG1 (0x07)
+#define MCP_16MHz_50kBPS_CFG2 (0xFA)
+#define MCP_16MHz_50kBPS_CFG3 (0x87)
+
+#define MCP_16MHz_40kBPS_CFG1 (0x07)
+#define MCP_16MHz_40kBPS_CFG2 (0xFF)
+#define MCP_16MHz_40kBPS_CFG3 (0x87)
+
+#define MCP_16MHz_31k25BPS_CFG1 (0x0F)
+#define MCP_16MHz_31k25BPS_CFG2 (0xF1)
+#define MCP_16MHz_31k25BPS_CFG3 (0x85)
+
+#define MCP_16MHz_20kBPS_CFG1 (0x0F)
+#define MCP_16MHz_20kBPS_CFG2 (0xFF)
+#define MCP_16MHz_20kBPS_CFG3 (0x87)
+
+#define MCP_16MHz_10kBPS_CFG1 (0x1F)
+#define MCP_16MHz_10kBPS_CFG2 (0xFF)
+#define MCP_16MHz_10kBPS_CFG3 (0x87)
+
+#define MCP_16MHz_5kBPS_CFG1 (0x3F)
+#define MCP_16MHz_5kBPS_CFG2 (0xFF)
+#define MCP_16MHz_5kBPS_CFG3 (0x87)
+//end speeds
 
 //registers
 #define MCP_RXF0SIDH    0x00
@@ -81,6 +134,25 @@ https://github.com/SpenceKonde/ATTinyCore/blob/master/avr/extras/ATtiny_x61.md
 #define MCP_RESET           0xC0
 //End of commands
 
+//CANCTRL Modes
+#define MODE_NORMAL     0x00
+#define MODE_SLEEP      0x20
+#define MODE_LOOPBACK   0x40
+#define MODE_LISTENONLY 0x60
+#define MODE_CONFIG     0x80
+#define MODE_POWERUP    0xE0
+#define MODE_MASK       0xE0
+#define ABORT_TX        0x10
+#define MODE_ONESHOT    0x08
+#define CLKOUT_ENABLE   0x04
+#define CLKOUT_DISABLE  0x00
+#define CLKOUT_PS1      0x00
+#define CLKOUT_PS2      0x01
+#define CLKOUT_PS4      0x02
+#define CLKOUT_PS8      0x03
+//End of controller modes
+
+
 uint8_t counter = 0;
 
 uint8_t SPI_transfer(uint8_t data){
@@ -101,6 +173,142 @@ uint8_t SPI_transfer(uint8_t data){
   digitalWrite(RED,LOW); 
       
   return data_in;    
+}
+
+void mcp25625_reset(){                                        //reset the CAN controller
+   digitalWrite(CS, LOW); 
+   SPI_transfer(0b11000000);                                  //reset command
+   digitalWrite(CS, HIGH);
+   delay(10);
+}
+
+void mcp25625_setCANCTRL_Mode(uint8_t newmode){
+  uint8_t i;
+  mcp25625_modifyRegister(MCP_CANCTRL, MODE_MASK, newmode);
+  i = mcp2515_readRegister(MCP_CANCTRL);
+  //need to determine a checking system that does not rely on Serial Com. 
+}
+
+void mcp25625_configRate(uint8_t canSpeed){
+  uint8_t set, cfg1, cfg2, cfg3;
+    set = 1;
+    switch (canSpeed) 
+    {
+        case (CAN_5KBPS):
+        cfg1 = MCP_16MHz_5kBPS_CFG1;
+        cfg2 = MCP_16MHz_5kBPS_CFG2;
+        cfg3 = MCP_16MHz_5kBPS_CFG3;
+        break;
+
+        case (CAN_10KBPS):
+        cfg1 = MCP_16MHz_10kBPS_CFG1;
+        cfg2 = MCP_16MHz_10kBPS_CFG2;
+        cfg3 = MCP_16MHz_10kBPS_CFG3;
+        break;
+
+        case (CAN_20KBPS):
+        cfg1 = MCP_16MHz_20kBPS_CFG1;
+        cfg2 = MCP_16MHz_20kBPS_CFG2;
+        cfg3 = MCP_16MHz_20kBPS_CFG3;
+        break;
+        
+        case (CAN_31K25BPS):
+        cfg1 = MCP_16MHz_31k25BPS_CFG1;
+        cfg2 = MCP_16MHz_31k25BPS_CFG2;
+        cfg3 = MCP_16MHz_31k25BPS_CFG3;
+        break;
+
+        case (CAN_40KBPS):
+        cfg1 = MCP_16MHz_40kBPS_CFG1;
+        cfg2 = MCP_16MHz_40kBPS_CFG2;
+        cfg3 = MCP_16MHz_40kBPS_CFG3;
+        break;
+
+        case (CAN_50KBPS):
+        cfg1 = MCP_16MHz_50kBPS_CFG1;
+        cfg2 = MCP_16MHz_50kBPS_CFG2;
+        cfg3 = MCP_16MHz_50kBPS_CFG3;
+        break;
+
+        case (CAN_80KBPS):
+        cfg1 = MCP_16MHz_80kBPS_CFG1;
+        cfg2 = MCP_16MHz_80kBPS_CFG2;
+        cfg3 = MCP_16MHz_80kBPS_CFG3;
+        break;
+
+        case (CAN_100KBPS):                                             /* 100KBPS                  */
+        cfg1 = MCP_16MHz_100kBPS_CFG1;
+        cfg2 = MCP_16MHz_100kBPS_CFG2;
+        cfg3 = MCP_16MHz_100kBPS_CFG3;
+        break;
+
+        case (CAN_125KBPS):
+        cfg1 = MCP_16MHz_125kBPS_CFG1;
+        cfg2 = MCP_16MHz_125kBPS_CFG2;
+        cfg3 = MCP_16MHz_125kBPS_CFG3;
+        break;
+
+        case (CAN_200KBPS):
+        cfg1 = MCP_16MHz_200kBPS_CFG1;
+        cfg2 = MCP_16MHz_200kBPS_CFG2;
+        cfg3 = MCP_16MHz_200kBPS_CFG3;
+        break;
+
+        case (CAN_250KBPS):
+        cfg1 = MCP_16MHz_250kBPS_CFG1;
+        cfg2 = MCP_16MHz_250kBPS_CFG2;
+        cfg3 = MCP_16MHz_250kBPS_CFG3;
+        break;
+
+        case (CAN_500KBPS):
+        cfg1 = MCP_16MHz_500kBPS_CFG1;
+        cfg2 = MCP_16MHz_500kBPS_CFG2;
+        cfg3 = MCP_16MHz_500kBPS_CFG3;
+        break;
+        
+        case (CAN_666KBPS):
+        cfg1 = MCP_16MHz_666kBPS_CFG1;
+        cfg2 = MCP_16MHz_666kBPS_CFG2;
+        cfg3 = MCP_16MHz_666kBPS_CFG3;
+        break;
+        
+        case (CAN_1000KBPS):
+        cfg1 = MCP_16MHz_1000kBPS_CFG1;
+        cfg2 = MCP_16MHz_1000kBPS_CFG2;
+        cfg3 = MCP_16MHz_1000kBPS_CFG3;
+        break;  
+
+        default:
+        set = 0;
+        break;
+    }
+
+    if (set) {
+        mcp2515_setRegister(MCP_CNF1, cfg1);
+        mcp2515_setRegister(MCP_CNF2, cfg2);
+        mcp2515_setRegister(MCP_CNF3, cfg3);
+}
+
+void mcp25625_initCANBuffers(){
+  //initialize the CAN buffers
+}
+
+void mcp25625_setRegisters(args){
+  //copy this over. 
+}
+
+void mcp25625_modifyRegister(args){
+  //copy this over too. 
+}
+void mcp25625_init(uint8_t canSpeed){
+    mcp25625_reset();
+    mcp25625_setCANCTRL_Mode(MODE_CONFIG);
+    mcp25625_configRate(canSpeed))
+    mcp25625_initCANBuffers();
+    mcp25625_setRegister(MCP_CANINTE, MCP_RX0IF | MCP_RX1IF)
+    mcp25625_modifyRegister(MCP_RXB0CTRL, MCP_RXB_RX_MASK | MCP_RXB_BUKT_MASK, MCP_RXB_RX_STDEXT | MCP_RXB_BUKT_MASK );
+    mcp25625_modifyRegister(MCP_RXB1CTRL, MCP_RXB_RX_MASK, MCP_RXB_RX_STDEXT);
+    mcp25625_setCANCTRL_Mode(MODE_NORMAL);                                                                
 }
 
 void flash(uint8_t ledPin){
@@ -191,15 +399,12 @@ void setup() {
   digitalWrite(CS,HIGH);
   digitalWrite(SCK,LOW);
   delay(1);
-//Serial commands don't work since it is not connected
+
   
 
   //Reset the CAN Controller
-  digitalWrite(CS,LOW);
-  SPI_transfer(0b11000000); //Reset
-  digitalWrite(CS,HIGH);
+  mcp25625_reset()
   
-  delay(1);
 
   digitalWrite(CS,LOW);
   SPI_transfer(0x05);
