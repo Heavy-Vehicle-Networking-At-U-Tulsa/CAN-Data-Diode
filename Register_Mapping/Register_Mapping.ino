@@ -365,6 +365,18 @@ void mcp25625_write_id( uint8_t mcp_addr,uint8_t ext, uint32_t id ){
     }
     mcp2515_setRegisterS( mcp_addr, tbufdata, 4 );
 }
+void mcp25625_setRegisterS(uint8_t address, uint8_t values[], uint8_t n){
+    
+    uint8_t i;
+    digitalWrite(CS, LOW);
+    SPI_transfer(MCP_WRITE);
+    SPI_transfer(address);
+    for (i=0; i<n; i++) 
+    {
+        SPI_transfer(values[i]);
+    }
+    digitalWrite(CS, HIGH);
+}
 
 void mcp25625_init(uint8_t canSpeed){
     mcp25625_reset();
