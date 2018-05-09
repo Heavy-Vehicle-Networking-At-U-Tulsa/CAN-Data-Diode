@@ -340,8 +340,30 @@ void mcp25625_modifyRegister(uint8_t address, uint8_t mask, uint8_t data){
     digitalWrite(CS, HIGH);
 }
 
-void mcp25625_write_id(args){
-  //more shit.
+void mcp25625_write_id( uint8_t mcp_addr,uint8_t ext, uint32_t id ){
+    uint16_t canid;
+    uint8_t tbufdata[4];
+
+    canid = (uint16_t)(id & 0x0FFFF);
+
+    if ( ext == 1) 
+    {
+        tbufdata[MCP_EID0] = (INT8U) (canid & 0xFF);
+        tbufdata[MCP_EID8] = (INT8U) (canid >> 8);
+        canid = (uint16_t)(id >> 16);
+        tbufdata[MCP_SIDL] = (INT8U) (canid & 0x03);
+        tbufdata[MCP_SIDL] += (INT8U) ((canid & 0x1C) << 3);
+        tbufdata[MCP_SIDL] |= MCP_TXB_EXIDE_M;
+        tbufdata[MCP_SIDH] = (INT8U) (canid >> 5 );
+    }
+    else 
+    {
+        tbufdata[MCP_SIDH] = (INT8U) (canid >> 3 );
+        tbufdata[MCP_SIDL] = (INT8U) ((canid & 0x07 ) << 5);
+        tbufdata[MCP_EID0] = 0;
+        tbufdata[MCP_EID8] = 0;
+    }
+    mcp2515_setRegisterS( mcp_addr, tbufdata, 4 );
 }
 
 void mcp25625_init(uint8_t canSpeed){
