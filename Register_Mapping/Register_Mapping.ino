@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 #include <util/atomic.h>
+=======
+>>>>>>> origin/master
 //These are the pins used
 #define GREEN 10
 #define RED 14
@@ -272,6 +275,11 @@
 #define MCP_16MHz_5kBPS_CFG2 (0xFF)
 #define MCP_16MHz_5kBPS_CFG3 (0x87)
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> origin/master
 #define MCPDEBUG        (0)
 #define MCPDEBUG_TXBUF  (0)
 #define MCP_N_TXBUFFERS (3)
@@ -283,8 +291,13 @@
 #define MCP2515_SELECT()   digitalWrite(CS, LOW)
 #define MCP2515_UNSELECT() digitalWrite(CS, HIGH)
 
+<<<<<<< HEAD
 #define MCP25625_OK         (0)
 #define MCP25625_FAIL       (1)
+=======
+#define MCP2515_OK         (0)
+#define MCP2515_FAIL       (1)
+>>>>>>> origin/master
 #define MCP_ALLTXBUSY      (2)
 
 #define CANDEBUG   1
@@ -335,17 +348,21 @@
 
 //End of controller modes
 
+<<<<<<< HEAD
 uint8_t m_nExtFlg;
 uint32_t m_nID;
 uint8_t m_nDta[8];
 uint8_t m_nRtr;
 uint8_t m_nDlc; 
 uint8_t m_nfilhit;
+=======
+>>>>>>> origin/master
 
 uint8_t counter = 0;
 
 uint8_t SPI_transfer(uint8_t data){
   uint8_t data_in = 0;
+<<<<<<< HEAD
   //Use bitwise ORs and ANDs to set and clear bits directly on the port.
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
     for (int8_t i = 0;i<8;i++){
@@ -359,6 +376,23 @@ uint8_t SPI_transfer(uint8_t data){
       PORTB &= 0b11111011; //Set the ClockPin Low (PB2)     
     }
   }    
+=======
+  int8_t i = 7;
+  while(i >= 0){
+    //mask the bit of interest, shift it to the first position and send it.
+    digitalWrite(DO,((1<<i) & data) >> i) ;
+    digitalWrite(GREEN,((1<<i) & data) >> i) ;
+    digitalWrite(SCK,HIGH); //Clock out the data
+    bool in = digitalRead(DI);
+    data_in |= in << i; //Bitwise OR to build the input
+    digitalWrite(RED,in); 
+    digitalWrite(SCK,LOW); 
+    i--;
+  }
+  digitalWrite(GREEN,LOW) ;
+  digitalWrite(RED,LOW); 
+      
+>>>>>>> origin/master
   return data_in;    
 }
 
@@ -369,6 +403,7 @@ void mcp25625_reset(){                                        //reset the CAN co
    delay(10);
 }
 
+<<<<<<< HEAD
 void mcp25625_modifyRegister(uint8_t address, uint8_t mask, uint8_t data){
     digitalWrite(CS, LOW);
     SPI_transfer(MCP_BITMOD);
@@ -381,6 +416,13 @@ void mcp25625_modifyRegister(uint8_t address, uint8_t mask, uint8_t data){
 void mcp25625_setCANCTRL_Mode(uint8_t newmode){
   uint8_t i;
   mcp25625_modifyRegister(MCP_CANCTRL, MODE_MASK, newmode); 
+=======
+void mcp25625_setCANCTRL_Mode(uint8_t newmode){
+  uint8_t i;
+  mcp25625_modifyRegister(MCP_CANCTRL, MODE_MASK, newmode);
+  i = mcp25625_readRegister(MCP_CANCTRL);
+  //need to determine a checking system that does not rely on Serial Com. 
+>>>>>>> origin/master
 }
 
 void mcp25625_configRate(uint8_t canSpeed){
@@ -482,6 +524,7 @@ void mcp25625_configRate(uint8_t canSpeed){
         mcp25625_setRegister(MCP_CNF2, cfg2);
         mcp25625_setRegister(MCP_CNF3, cfg3);
 }
+<<<<<<< HEAD
 }
 
 void mcp25625_setRegister(uint8_t address, uint8_t values){
@@ -531,6 +574,8 @@ void mcp25625_write_id( uint8_t mcp_addr,uint8_t ext, uint32_t id ){
     mcp25625_setRegisterS( mcp_addr, tbufdata, 4 );
 }
 
+=======
+>>>>>>> origin/master
 
 void mcp25625_initCANBuffers(){
   uint8_t i, a1, a2, a3;
@@ -564,6 +609,7 @@ void mcp25625_initCANBuffers(){
     mcp25625_setRegister(MCP_RXB0CTRL, 0);
     mcp25625_setRegister(MCP_RXB1CTRL, 0);
 }
+<<<<<<< HEAD
 
 
 uint8_t mcp25625_readStatus(void){
@@ -578,6 +624,61 @@ uint8_t mcp25625_readStatus(void){
 
 
 void mcp25625_read_id(uint8_t mcp_addr, uint8_t *ext, uint32_t *id){
+=======
+}
+
+void mcp25625_setRegister(uint8_t address, uint8_t values){
+    digitalWrite(CS, LOW);
+    SPI_transfer(MCP_WRITE);
+    SPI_transfer(address);
+    SPI_transfer(value);
+    digitalWrite(CS, HIGH);
+}
+uint8_t mcp25265_readStatus(){
+    uint8_t i;
+    digitalWrite(CS, LOW);
+    SPI_transfer(MCP_READ_STATUS);
+    i = spi_read();
+    digitalWrite(CS, HIGH);
+  
+  return i;
+}
+void mcp25625_modifyRegister(uint8_t address, uint8_t mask, uint8_t data){
+    digitalWrite(CS, LOW);
+    SPI_transfer(MCP_BITMOD);
+    SPI_transfer(address);
+    SPI_transfer(mask);
+    SPI_transfer(data);
+    digitalWrite(CS, HIGH);
+}
+
+void mcp25625_write_id( uint8_t mcp_addr,uint8_t ext, uint32_t id ){
+    uint16_t canid;
+    uint8_t tbufdata[4];
+
+    canid = (uint16_t)(id & 0x0FFFF);
+
+    if ( ext == 1) 
+    {
+        tbufdata[MCP_EID0] = (uint8_t) (canid & 0xFF);
+        tbufdata[MCP_EID8] = (uint8_t) (canid >> 8);
+        canid = (uint16_t)(id >> 16);
+        tbufdata[MCP_SIDL] = (uint8_t) (canid & 0x03);
+        tbufdata[MCP_SIDL] += (uint8_t) ((canid & 0x1C) << 3);
+        tbufdata[MCP_SIDL] |= MCP_TXB_EXIDE_M;
+        tbufdata[MCP_SIDH] = (uint8_t) (canid >> 5 );
+    }
+    else 
+    {
+        tbufdata[MCP_SIDH] = (uint8_t) (canid >> 3 );
+        tbufdata[MCP_SIDL] = (uint8_t) ((canid & 0x07 ) << 5);
+        tbufdata[MCP_EID0] = 0;
+        tbufdata[MCP_EID8] = 0;
+    }
+    mcp25625_setRegisterS( mcp_addr, tbufdata, 4 );
+}
+void mcp25625_read_id(uint8_t mcp_addr, uint8_t ext, uint32_t id){
+>>>>>>> origin/master
     uint8_t tbufdata[4];
     
     ext = 0;
@@ -610,7 +711,11 @@ void mcp25625_write_canMsg(uint8_t buffer_sidh_addr){
 void mcp25625_read_canMsg(uint8_t buffer_sidh_addr){
     uint8_t mcp_addr, ctrl;
     mcp_addr = buffer_sidh_addr;
+<<<<<<< HEAD
     mcp25625_read_id( mcp_addr, &m_nExtFlg, &m_nID );
+=======
+    mcp25625_read_id( mcp_addr, &m_nExtFlg,&m_nID );
+>>>>>>> origin/master
     ctrl = mcp25625_readRegister( mcp_addr-1 );
     m_nDlc = mcp25625_readRegister( mcp_addr+4 );
     if ((ctrl & 0x08)) {
@@ -626,7 +731,11 @@ void mcp25625_read_canMsg(uint8_t buffer_sidh_addr){
 void mcp25625_start_transmit(uint8_t mcp_addr){
     mcp25625_modifyRegister( mcp_addr-1 , MCP_TXB_TXREQ_M, MCP_TXB_TXREQ_M );
 }
+<<<<<<< HEAD
 uint8_t mcp25625_getNextFreeTXBuf(uint8_t *txbuf_n)                 /* get Next free txbuf          */
+=======
+uint8_t mcp25625_getNextFreeTXBuf(uint8_t txbuf_n)                 /* get Next free txbuf          */
+>>>>>>> origin/master
 {
     uint8_t res, i, ctrlval;
     uint8_t ctrlregs[MCP_N_TXBUFFERS] = { MCP_TXB0CTRL, MCP_TXB1CTRL, MCP_TXB2CTRL };
@@ -703,12 +812,20 @@ void init_Filt(uint8_t num, uint8_t ext, uint32_t ulData)
     mcp25625_setCANCTRL_Mode(MODE_NORMAL);
 }
 
+<<<<<<< HEAD
 void setMsg(uint32_t id, uint8_t ext, uint8_t len, uint8_t *pData){
+=======
+void setMsg(uint32_t id, uint8_t ext, uint8_t *pData){
+>>>>>>> origin/master
   int i = 0;
   m_nExtFlg = ext;
   m_nID     = id;
   m_nDlc    = len;
+<<<<<<< HEAD
   for(i = 0; i<len; i++){
+=======
+  for(i = 0; i<MAX_CHAR_IN_MESSAGE; i++){
+>>>>>>> origin/master
     m_nDta[i] = *(pData+i);
   }
 }
@@ -762,7 +879,11 @@ uint8_t sendMsgBuf(uint32_t id, uint8_t ext, uint8_t len, uint8_t *buf)
 
 uint8_t readMsg(){
     uint8_t stat, res;
+<<<<<<< HEAD
     stat = mcp25625_readStatus();
+=======
+    stat = mcp2515_readStatus();
+>>>>>>> origin/master
     if ( stat & MCP_STAT_RX0IF ){                                        /* Msg in Buffer 0              */
 
         mcp25625_read_canMsg( MCP_RXBUF_0);
@@ -782,7 +903,10 @@ uint8_t readMsg(){
     return res;
 }
 uint8_t readMsgBuf(uint8_t *len, uint8_t buf[]){
+<<<<<<< HEAD
     
+=======
+>>>>>>> origin/master
     readMsg();
     *len = m_nDlc;
     for(int i = 0; i<m_nDlc; i++)
@@ -793,7 +917,11 @@ uint8_t readMsgBuf(uint8_t *len, uint8_t buf[]){
 uint8_t checkReceive()
 {
     uint8_t res;
+<<<<<<< HEAD
     res = mcp25625_readStatus();                                         /* RXnIF in Bit 1 and 0         */
+=======
+    res = mcp2515_readStatus();                                         /* RXnIF in Bit 1 and 0         */
+>>>>>>> origin/master
     if ( res & MCP_STAT_RXIF_MASK ) 
     {
         return CAN_MSGAVAIL;
@@ -805,7 +933,11 @@ uint8_t checkReceive()
 }
 
 uint8_t checkError(){
+<<<<<<< HEAD
   uint8_t eflg = mcp25625_readRegister(MCP_EFLG);
+=======
+  uint8_t eflg = mcp2515_readRegister(MCP_EFLG);
+>>>>>>> origin/master
 
     if ( eflg & MCP_EFLG_ERRORMASK ) 
     {
@@ -820,14 +952,35 @@ uint32_t getCanId(){
     return m_nID;
 }
 
+<<<<<<< HEAD
 
+=======
+void mcp25625_setRegisterS(uint8_t address, uint8_t values[], uint8_t n){
+    
+    uint8_t i;
+    digitalWrite(CS, LOW);
+    SPI_transfer(MCP_WRITE);
+    SPI_transfer(address);
+    for (i=0; i<n; i++) 
+    {
+        SPI_transfer(values[i]);
+    }
+    digitalWrite(CS, HIGH);
+}
+>>>>>>> origin/master
 
 void mcp25625_init(uint8_t canSpeed){
     mcp25625_reset();
     mcp25625_setCANCTRL_Mode(MODE_CONFIG);
+<<<<<<< HEAD
     mcp25625_configRate(canSpeed);
     mcp25625_initCANBuffers();
     mcp25625_setRegister(MCP_CANINTE, MCP_RX0IF | MCP_RX1IF);
+=======
+    mcp25625_configRate(canSpeed))
+    mcp25625_initCANBuffers();
+    mcp25625_setRegister(MCP_CANINTE, MCP_RX0IF | MCP_RX1IF)
+>>>>>>> origin/master
     mcp25625_modifyRegister(MCP_RXB0CTRL, MCP_RXB_RX_MASK | MCP_RXB_BUKT_MASK, MCP_RXB_RX_STDEXT | MCP_RXB_BUKT_MASK );
     mcp25625_modifyRegister(MCP_RXB1CTRL, MCP_RXB_RX_MASK, MCP_RXB_RX_STDEXT);
     mcp25625_setCANCTRL_Mode(MODE_NORMAL);                                                                
@@ -886,6 +1039,7 @@ void setRegisters (uint8_t address, byte value, int n){
 void mcp25625_readRegisterS(uint8_t address, uint8_t values[], uint8_t n)
 {
   uint8_t i;
+<<<<<<< HEAD
   digitalWrite(CS, LOW);
   SPI_transfer(MCP_READ);
   SPI_transfer(address);
@@ -903,6 +1057,26 @@ byte mcp25625_readRegister(uint8_t address){
     digitalWrite(CS, HIGH);
 
   return incoming;
+=======
+  digitalWrite(CS, LOW):
+  SPI_transfer(MCP_READ);
+  SPI_transfer(address);
+  // mcp2515 has auto-increment of address-pointer
+  for (i=0; i<n; i++) 
+    {
+    values[i] = spi_read();
+  }
+  MCP2515_UNSELECT();
+}
+
+void mcp25625_readRegister(uint8_t address, uint8_t values[], uint8_t data){
+    digitalWrite(CS, LOW);
+    SPI_transfer(MCP_BITMOD);
+    SPI_transfer(address);
+    SPI_transfer(mask);
+    SPI_transfer(data);
+    digitalWrite(CS, HIGH);
+>>>>>>> origin/master
 }
 
 char registers[128];
@@ -932,8 +1106,12 @@ void setup() {
 
   mcp25625_reset();
   delay(10);
+<<<<<<< HEAD
   mcp25625_begin(CAN_250KBPS);
   mcp25625_setCANCTRL_Mode(MODE_NORMAL);
+=======
+  CAN0.being(MCP_ANY, CAN_250KBPS, MCP_16MHZ)
+>>>>>>> origin/master
   delay(1);
   
   // set the digital pin as output:
@@ -956,7 +1134,11 @@ void setup() {
   
 
   //Reset the CAN Controller
+<<<<<<< HEAD
   mcp25625_reset();
+=======
+  mcp25625_reset()
+>>>>>>> origin/master
   
 
   digitalWrite(CS,LOW);
@@ -966,18 +1148,31 @@ void setup() {
   SPI_transfer(0b00000100);
   digitalWrite(CS,HIGH);
 
+<<<<<<< HEAD
   for(int i=0; i>=128; i++){
     registers[i] = readRegister[i];
+=======
+  for(int i=0; i>=128; i++;){
+    registers[i] = readRegisters[i];
+>>>>>>> origin/master
   }
   
 }
 
+<<<<<<< HEAD
 void loop(){
   flash(GREEN);
   flash(GREEN);
   //uncomment whichever you are using
   
   /*//ELD
+=======
+void loop()
+{
+  //uncomment whichever you are using
+  
+  /*ELD
+>>>>>>> origin/master
   if(96<=readRegister(0x1C)){
     digitalWrite(SILENT, LOW);
     delay(500);
@@ -985,6 +1180,7 @@ void loop(){
   }
   */
   
+<<<<<<< HEAD
   //Requestor Node
   
   sendMsgBuf(reqID, 1, 3, vin);
@@ -993,6 +1189,14 @@ void loop(){
   sendMsgBuf(reqID, 1, 3, hours);
   flash(GREEN);
   delay(150000);
+=======
+  /*Requestor Node
+  delay(150000)
+  Can0.sendMsgBuf(reqID, 1, 3, vin);
+  delay(150000)
+  Can0.sendMsgBuf(reqID, 1, 3, hours);
+  */
+>>>>>>> origin/master
 
 }
 
