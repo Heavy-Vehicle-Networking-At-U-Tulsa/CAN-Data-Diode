@@ -2,12 +2,15 @@
 void setup() {
   pinMode(LED_PIN, OUTPUT);
   
+  
   //Save Power by writing all Digital IO LOW - note that pins just need to be tied one way or another, do not damage devices!
   for (int i = 0; i < 20; i++) {
     if(i != 2)//just because the button is hooked up to digital pin 2
     pinMode(i, OUTPUT);
   }
+  
   attachInterrupt(0, digitalInterrupt, FALLING); //interrupt for waking up
+  
   
   //SETUP WATCHDOG TIMER
 WDTCSR = (24);//change enable and WDE - also resets
