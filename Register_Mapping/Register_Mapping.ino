@@ -1,3 +1,4 @@
+#include <util/atomic.h>
 //These are the pins used
 #define GREEN 10
 #define RED 14
@@ -345,21 +346,19 @@ uint8_t counter = 0;
 
 uint8_t SPI_transfer(uint8_t data){
   uint8_t data_in = 0;
-  int8_t i = 7;
-  while(i >= 0){
-    //mask the bit of interest, shift it to the first position and send it.
-    digitalWrite(DO,((1<<i) & data) >> i) ;
-    digitalWrite(GREEN,((1<<i) & data) >> i) ;
-    digitalWrite(SCK,HIGH); //Clock out the data
-    bool in = digitalRead(DI);
-    data_in |= in << i; //Bitwise OR to build the input
-    digitalWrite(RED,in); 
-    digitalWrite(SCK,LOW); 
-    i--;
-  }
-  digitalWrite(GREEN,LOW) ;
-  digitalWrite(RED,LOW); 
-      
+  //Use bitwise ORs and ANDs to set and clear bits directly on the port.
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
+    for (int8_t i = 0;i<8;i++){
+      //Check to see what the first bit is in the data
+      if ((data & 0x80) == 0x80) PORTB |= 0b00000001; //Set the bit on PB0
+      else PORTB &= 0b11111110; //clear the bit on PB0
+      PORTB |= 0b00000100; //Clock out the data on PB2
+      data <<= 1;
+      data_in <<=1;
+      data_in |= (PORTB & 0x02) >> 1; //Bitwise OR with PB1 to build the input
+      PORTB &= 0b11111011; //Set the ClockPin Low (PB2)     
+    }
+  }    
   return data_in;    
 }
 
@@ -973,11 +972,12 @@ void setup() {
   
 }
 
-void loop()
-{
+void loop(){
+  flash(GREEN);
+  flash(GREEN);
   //uncomment whichever you are using
   
-  /*ELD
+  /*//ELD
   if(96<=readRegister(0x1C)){
     digitalWrite(SILENT, LOW);
     delay(500);
@@ -985,12 +985,13 @@ void loop()
   }
   */
   
-  /*Requestor Node
-  delay(150000)
+  //Requestor Node
+  
   sendMsgBuf(reqID, 1, 3, vin);
-  delay(150000)
+  flash(GREEN);
+  delay(150000);
   sendMsgBuf(reqID, 1, 3, hours);
-  */
+  flash(GREEN);
+  delay(150000);
 
 }
-
