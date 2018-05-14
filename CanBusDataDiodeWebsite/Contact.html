@@ -1,4 +1,38 @@
 <html>
+<style>
+body {font-family: Arial, Helvetica, sans-serif;}
+
+input[type=text], select, textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    margin-top: 6px;
+    margin-bottom: 16px;
+    resize: vertical;
+}
+
+input[type=submit] {
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+input[type=submit]:hover {
+    background-color: #45a049;
+}
+
+.container {
+    border-radius: 5px;
+    background-color: #f2f2f2;
+    padding: 20px;
+}
+
+</style>
 <head>
     <title>CAN Bus Data Diode</title>
     <meta charset="utf-8"/>
@@ -17,25 +51,42 @@
     </header>
     <nav>
       <ul>
-        <li><a href="#"><b><u>Home</u></b></a></li>
+        <li><a href="/C:/Users/Hayden%20Allen/Desktop/CanBusDataDiodeWebsite/index.html">Home</a></li>
 		<li><a href="/C:/Users/Hayden%20Allen/Desktop/CanBusDataDiodeWebsite/Getting_Started.html">Getting Started</a></li>
-        <li><a href="#">Downloads</a></li>
-		<li><a href="#">Press Release</a></li>
-        <li><a href="#">About</a></li>
+        <li><a href="/C:/Users/Hayden%20Allen/Desktop/CanBusDataDiodeWebsite/downloads.html">Downloads</a></li>
+		<li><a href="/C:/Users/Hayden%20Allen/Desktop/CanBusDataDiodeWebsite/press_release.html">Press Release</a></li>
+        <li><a href="/C:/Users/Hayden%20Allen/Desktop/CanBusDataDiodeWebsite/About.html">About</a></li>
 		
       </ul>
-      <div class="contact-btn"><a>Contact</a>
+      <div class="contact-btn"><a href="/C:/Users/Hayden%20Allen/Desktop/CanBusDataDiodeWebsite/Contact.html"><b><u>Contact</u></b></a>
       </div>
     </nav>
-    <section class="jumbotron">
+	<div class="warning">
+	<h3> This is a placeholder page </h3>
+	<h3> I do not know .php so I do not know how to handle inputs </h3>
+	<h3> Therefore this just shown and <b>does not function</b></h3>
+	</div>
     <div class="container">
-      <div class="row text-center">
-        <h2>CAN Bus Data Diode</h2>
-        <h3>A Hardware Based Security Approach</h3>
-        <a class="btn btn-primary" href="/C:/Users/Hayden%20Allen/Desktop/CanBusDataDiodeWebsite/Getting_Started.html">Get Started Today!</a>
-      </div>
-    </div>
-    </section>
+    <form action="/action_page.php">
+    <label for="fname">First Name</label>
+    <input type="text" id="fname" name="firstname" placeholder="Your name..">
+
+    <label for="lname">Last Name</label>
+    <input type="text" id="lname" name="lastname" placeholder="Your last name..">
+
+    <label for="country">Country</label>
+    <select id="country" name="country">
+      <option value="australia">Australia</option>
+      <option value="canada">Canada</option>
+      <option value="usa">USA</option>
+    </select>
+
+    <label for="subject">Subject</label>
+    <textarea id="subject" name="subject" placeholder="Write something.." style="height:200px"></textarea>
+
+    <input type="submit" value="Submit">
+  </form>
+</div>
 	<footer>
 	<div class="footer">
 		<h3>Location:
