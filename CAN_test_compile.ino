@@ -123,7 +123,7 @@ void setup() {
   pinMode(GREEN,OUTPUT);
   pinMode(RED,OUTPUT);
   pinMode(SILENT, OUTPUT);
-  pinMode(5, 
+  pinMode(5, INPUT);
   
   digitalWrite(GREEN,HIGH) ;
   digitalWrite(RED,HIGH); 
