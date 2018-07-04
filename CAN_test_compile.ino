@@ -114,6 +114,8 @@ void sos(uint8_t led){
 
 void setup() {
   // set the digital pin as output:
+  delay(5);
+  
   pinMode(CS,OUTPUT);
   pinMode(SCK,OUTPUT);
   pinMode(DI,INPUT_PULLUP);
@@ -121,6 +123,7 @@ void setup() {
   pinMode(GREEN,OUTPUT);
   pinMode(RED,OUTPUT);
   pinMode(SILENT, OUTPUT);
+  pinMode(5, INPUT);
   
   digitalWrite(GREEN,HIGH) ;
   digitalWrite(RED,HIGH); 
@@ -143,7 +146,7 @@ void setup() {
   SPI_transfer(0b10000100); //data byte to enable 1 clock out and to enter configuration mode
   digitalWrite(CS,HIGH);
 
-  delay(1);  
+  delay(10);  
 
  flash(GREEN);
  flash(RED);
@@ -165,11 +168,21 @@ delay(100);
 }
 void loop()
 { 
-    CAN0.readMsgBuf(&rxId, &len, rxBuf);
+    /*CAN0.readMsgBuf(&rxId, &len, rxBuf);
     if(rxId == 0x18FEF100){
        flash(RED);
-    }
+    }*/
+    //flash(RED);
+
+     digitalWrite(CS,LOW);
+     SPI_transfer(0x03); // instruction to modify bits
+     SPI_transfer(0x0F); //Address Byte
+     SPI_transfer(0x00);
+     digitalWrite(CS,HIGH);
+    
     CAN0.sendMsgBuf(0x000, 0, 8, data);
-    delay(100);
+    digitalWrite(RED, HIGH);
+    delay(1);
+    digitalWrite(RED, LOW);
   }
 
