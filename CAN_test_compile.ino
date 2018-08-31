@@ -53,6 +53,7 @@ uint8_t SPI_transfer(uint8_t data){
 bool canTest = 1;
 
 
+
 void flash(uint8_t led){
   digitalWrite(led, HIGH);
   delay(10);
@@ -114,16 +115,19 @@ void sos(uint8_t led){
 
 void setup() {
   // set the digital pin as output:
+
   delay(5);
-  
+
   pinMode(CS,OUTPUT);
   pinMode(SCK,OUTPUT);
   pinMode(DI,INPUT_PULLUP);
   pinMode(DO,OUTPUT);
   pinMode(GREEN,OUTPUT);
   pinMode(RED,OUTPUT);
+
   pinMode(SILENT, OUTPUT);
   pinMode(5, INPUT);
+
   
   digitalWrite(GREEN,HIGH) ;
   digitalWrite(RED,HIGH); 
