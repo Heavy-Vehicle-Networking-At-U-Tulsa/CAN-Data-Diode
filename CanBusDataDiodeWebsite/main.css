@@ -1,0 +1,237 @@
+html, body {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+body {
+  font-family: 'Lato', sans-serif;
+  background-position: center top;
+  background-size: cover;
+  margin: 0;
+}
+
+a {
+  color: #204156;
+  text-decoration: none;
+}
+
+h1{
+
+  font-size: 70px;
+  font-weight: 700;
+  color: #000;
+
+}
+
+.page-title {
+  text-align: center;
+  font-weight: 300;
+}
+
+.page-description {
+  border: 1px solid #000;
+  margin: 2px;
+  text-align: center;
+  padding: 20px;
+}
+
+
+/* Jumbotrons */
+.jumbotron {
+  display: flex;
+  align-items: center;
+  background-image: url(http://i1064.photobucket.com/albums/u373/hja685/21.13.25_zpslkeyycke.jpg) !important;
+  background-size: cover;
+  color: #ffffff;
+  height: 500px;
+  text-shadow: 0.5px 0.5px 0.5px #000000;
+  border-style: solid;
+  border-color: #000;
+}
+
+.jumbotron h2 {
+  font-size: 80px;
+  font-weight: 700;
+  margin: 0;
+  color: #fff;
+}
+
+.jumbotron h3 {
+  margin: 0 0 20px;
+  color: #fff;
+}
+
+.jumbotron1 {
+  display: flex;
+  align-items: center;
+  background-image: url(https://images.pexels.com/photos/34649/pexels-photo.jpg) !important;
+  background-size: cover;
+  color: #ffffff;
+  height: 500px;
+  text-shadow: 0.5px 0.5px 0.5px #000000;
+  border-style: solid;
+  border-color: #000;
+}
+
+.jumbotron1 h2 {
+  font-size: 80px;
+  font-weight: 700;
+  margin-top: 30px;
+  color: #fff;
+}
+
+.jumbotron1 h3 {
+  margin: 0 0 20px;
+  color: #fff;
+}
+
+.jumbotronAbout {
+  display: flex;
+  align-items: center;
+  background-image: url(http://i1064.photobucket.com/albums/u373/hja685/Students%202017%20with%20Truck_zpslxlwoldf.jpg) !important;
+  background-size: cover;
+  color: #ffffff;
+  height: 500px;
+  text-shadow: 0.5px 0.5px 0.5px #000000;
+  border-style: solid;
+  border-color: #000;
+}
+
+.jumbotronAbout h2 {
+  font-size: 80px;
+  font-weight: 700;
+  margin-top: 30px;
+  color: #fff;
+}
+
+.jumbotronAbout h3 {
+  margin: 0 0 20px;
+  color: #fff;
+}
+
+
+
+/*End of Jumbotrons*/
+
+.footer h3 {
+ position: absolute;
+
+ font-size: 10px;
+ font-weight: 300;
+ margin-top: 20px;
+ margin-left: 20px;
+}
+
+.produced h3{
+ text-align: right;
+
+ font-size: 10px;
+ font-weight: 300;
+ margin-top: 20px;
+ margin-right: 20px;
+}
+.warning h3 {
+ text-align: center;
+ margin-bottom: 20px;
+}
+
+.guide h1{
+ margin-left: 20px;
+ margin-top: 20px;
+ font-size: 50px;
+ font-weight: 300;
+}
+.guide h2{
+ margin-left: 20px;
+ margin-top: 20px;
+}
+
+.guide h3{
+ font-size: 20px;
+ margin-left: 20px;
+ margin-top: 20px;
+ font-weight: 350;
+}
+
+.guide p{
+ margin-left: 20px;
+ margin-top: 10px;
+}
+
+section .row img {
+  margin: 0 0 30px;
+  width: 100%;
+}
+
+.gallery {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.gallery-item {
+}
+
+.gallery-item .thumbnail {
+  width: 1230px;
+  height: auto;
+  border: 5px solid #fff;
+}
+
+content {
+    position: relative;
+}
+.ribbon {
+    position: absolute;
+    width: 200px;
+    height: auto;
+    top: 25px;
+    left: 20px;
+}
+
+
+/* FOOTER NAVIGATION */
+
+nav {
+  /*background-color: #FFF;*/
+}
+
+nav li {
+  display: inline;
+  margin: 0;
+  padding: 0 10px;
+}
+
+nav ul {
+  display: inline;
+}
+
+.contact-btn {
+  float: right;
+}
+
+.contact-btn a {
+  cursor: pointer;
+  margin-right: 30px;
+  padding: 8px 18px;
+  border: 1px solid #204156;
+  position: relative;
+
+}
+
+.contact-btn a:active {
+  top: 2px;
+}
+
+
+
+nav a {
+  height: 100px;
+  line-height: 60px;
+  color: #204156;
+  text-decoration: none;
+}
