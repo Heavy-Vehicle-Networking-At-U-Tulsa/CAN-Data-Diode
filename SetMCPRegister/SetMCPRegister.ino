@@ -12,6 +12,7 @@ https://github.com/SpenceKonde/ATTinyCore/blob/master/avr/extras/ATtiny_x61.md
 #define SCK 7
 #define DO 9 
 #define DI 8
+#define SILENT 11
 
 #define RESET       0b11000000
 #define READ_STATUS 0b10100000
@@ -47,12 +48,14 @@ void setup() {
   pinMode(DO,OUTPUT);
   pinMode(GREEN,OUTPUT);
   pinMode(RED,OUTPUT);
+  pinMode(SILENT,OUTPUT);
   
   
   digitalWrite(GREEN,HIGH) ;
   digitalWrite(RED,HIGH); 
   digitalWrite(CS,HIGH);
   digitalWrite(SCK,LOW);
+  digitalWrite(SILENT,LOW);
   delay(1);
   
 
@@ -90,9 +93,9 @@ void loop()
   }
   digitalWrite(CS,HIGH);
   
-  digitalWrite(GREEN,HIGH);
+  digitalWrite(RED,HIGH);
   delay(5);
-  digitalWrite(GREEN,LOW);
+  digitalWrite(RED,LOW);
   delay(5);
   
 }
