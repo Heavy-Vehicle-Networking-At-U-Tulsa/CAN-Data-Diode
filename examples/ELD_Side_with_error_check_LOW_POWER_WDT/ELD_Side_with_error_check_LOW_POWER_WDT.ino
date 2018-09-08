@@ -389,7 +389,8 @@ delay(100);
 
 void loop()
 { 
-  // This should be the Low Power Setting
+  // This should be the Low Power Setting allowing the device to sleep for 8 seconds. 
+  // This can be changed in the setup by referencing pg. 48 of ATTINY861 Datasheet. 
   if(f_wdt == 1) //this makes sure that the device is alive, and stops sleep until called to sleep again
   {
     //Error monitoring on ELD side of the BUS
