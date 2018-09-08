@@ -1,52 +1,120 @@
-#define LED_PIN 4
-void setup() {
-  pinMode(LED_PIN, OUTPUT);
-  
-  
-  //Save Power by writing all Digital IO LOW - note that pins just need to be tied one way or another, do not damage devices!
-  for (int i = 0; i < 20; i++) {
-    if(i != 2)//just because the button is hooked up to digital pin 2
-    pinMode(i, OUTPUT);
+#include <avr/sleep.h>
+#include <avr/power.h>
+#include <avr/wdt.h>
+
+#define LED_PIN (13)
+
+volatile int f_wdt=1;
+
+
+
+/***************************************************
+ *  Name:        ISR(WDT_vect)
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None.
+ *
+ *  Description: Watchdog Interrupt Service. This
+ *               is executed when watchdog timed out.
+ *
+ ***************************************************/
+ISR(WDT_vect)
+{
+  if(f_wdt == 0)
+  {
+    f_wdt=1;
   }
-  
-  attachInterrupt(0, digitalInterrupt, FALLING); //interrupt for waking up
-  
-  
-  //SETUP WATCHDOG TIMER
-WDTCSR = (24);//change enable and WDE - also resets
-WDTCSR = (33);//prescalers only - get rid of the WDE and WDCE bit
-WDTCSR |= (1<<6);//enable interrupt mode
-
-  //Disable ADC - don't forget to flip back after waking up if using ADC in your application ADCSRA |= (1 << 7);
-  ADCSRA &= ~(1 << 7);
-  
-  //ENABLE SLEEP - this enables the sleep mode
-  SMCR |= (1 << 2); //power down mode
-  SMCR |= 1;//enable sleep
 }
 
-void loop() {
 
-  digitalWrite(LED_PIN, HIGH);
-  delay(1000);
-  digitalWrite(LED_PIN, LOW);
-
-
-
-
-
-  //BOD DISABLE - this must be called right before the __asm__ sleep instruction
-  MCUCR |= (3 << 5); //set both BODS and BODSE at the same time
-  MCUCR = (MCUCR & ~(1 << 5)) | (1 << 6); //then set the BODS bit and clear the BODSE bit at the same time
-  __asm__  __volatile__("sleep");//in line assembler to go to sleep
-
+/***************************************************
+ *  Name:        enterSleep
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None.
+ *
+ *  Description: Enters the arduino into sleep mode.
+ *
+ ***************************************************/
+void enterSleep(void)
+{
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
+  sleep_enable();
   
+  /* Now enter sleep mode. */
+  sleep_mode();
+  
+  /* The program will continue from here after the WDT timeout*/
+  sleep_disable(); /* First thing to do is disable sleep. */
+  
+  /* Re-enable the peripherals. */
+  power_all_enable();
 }
 
-void digitalInterrupt(){
-  //needed for the digital input interrupt
+
+
+/***************************************************
+ *  Name:        setup
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None.
+ *
+ *  Description: Setup for the serial comms and the
+ *                Watch dog timeout. 
+ *
+ ***************************************************/
+void setup()
+{
+
+  pinMode(LED_PIN,OUTPUT);
+
+  /*** Setup the WDT ***/
+  
+  /* Clear the reset flag. */
+  MCUSR &= ~(1<<WDRF);
+  
+  /* In order to change WDE or the prescaler, we need to
+   * set WDCE (This will allow updates for 4 clock cycles).
+   */
+  WDTCSR |= (1<<WDCE) | (1<<WDE);
+
+  /* set new watchdog timeout prescaler value */
+  WDTCSR = 1<<WDP0 | 1<<WDP3; /* 8.0 seconds */
+  
+  /* Enable the WD interrupt (note no reset). */
+  WDTCSR |= _BV(WDIE);
 }
 
-ISR(WDT_vect){
-  //DON'T FORGET THIS!  Needed for the watch dog timer.  This is called after a watch dog timer timeout - this is the interrupt function called after waking up
-}// watchdog interrupt
+
+
+/***************************************************
+ *  Name:        enterSleep
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None.
+ *
+ *  Description: Main application loop.
+ *
+ ***************************************************/
+void loop()
+{
+  if(f_wdt == 1)
+  {
+    /* Toggle the LED */
+    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    
+    /* Don't forget to clear the flag. */
+    f_wdt = 0;
+    
+    /* Re-enter sleep mode. */
+    enterSleep();
+  }
+  else
+  {
+    /* Do nothing. */
+  }
+}
