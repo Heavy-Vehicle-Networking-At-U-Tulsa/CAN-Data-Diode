@@ -1,6 +1,9 @@
 #include <mcp_can.h>
 #include <mcp_can_dfs.h>
 #include <util/atomic.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
+#include <avr/wdt.h>
 #include <EEPROM.h>
 
 
@@ -11,6 +14,9 @@
 #define DO 9 
 #define DI 8
 #define SILENT 11
+
+
+volatile int f_wdt=1;
 
 long unsigned int rxId;
 unsigned char len = 0;
@@ -31,6 +37,50 @@ byte data[8] = {0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0F};
 uint8_t can_Val = EEPROM.read(0x00);
 
 uint8_t canSpeed[5] = {12, 13, 10, 14, 15};
+
+/***************************************************
+ *  Name:        ISR(WDT_vect)
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None.
+ *
+ *  Description: Watchdog Interrupt Service. This
+ *               is executed when watchdog timed out.
+ *
+ ***************************************************/
+ISR(WDT_vect)
+{
+  if(f_wdt == 0)
+  {
+    f_wdt=1;
+  }
+}
+
+/***************************************************
+ *  Name:        enterSleep
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None.
+ *
+ *  Description: Enters the arduino into sleep mode.
+ *
+ ***************************************************/
+void enterSleep(void)
+{
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);   /* EDIT: could also use SLEEP_MODE_PWR_DOWN for lowest power consumption. */
+  sleep_enable();
+  
+  /* Now enter sleep mode. */
+  sleep_mode();
+  
+  /* The program will continue from here after the WDT timeout*/
+  sleep_disable(); /* First thing to do is disable sleep. */
+  
+  /* Re-enable the peripherals. */
+  power_all_enable();
+}
 
 //***************************************************************************
 
@@ -59,7 +109,7 @@ uint8_t SPI_transfer(uint8_t data){
 }
 bool canTest = 1;
 
-uint32_t currentMillis = elapsedMillis();
+uint32_t currentMillis = millis();
 
 
 
@@ -238,6 +288,7 @@ void sos(uint8_t led){
 }
 
 void setup() {
+  
   // set the digital pin as output:
   delay(5);
   
@@ -255,6 +306,22 @@ void setup() {
   digitalWrite(CS,HIGH);
   digitalWrite(SCK,LOW);
   delay(1000);
+
+  /*** Setup the WDT ***/
+  
+  /* Clear the reset flag. */
+  MCUSR &= ~(1<<WDRF);
+  
+  /* In order to change WDE or the prescaler, we need to
+   * set WDCE (This will allow updates for 4 clock cycles).
+   */
+  WDTCSR |= (1<<WDCE) | (1<<WDE);
+
+  /* set new watchdog timeout prescaler value */
+  WDTCSR = 1<<WDP0 | 1<<WDP3; /* 8.0 seconds */
+  
+  /* Enable the WD interrupt (note no reset). */
+  WDTCSR |= _BV(WDIE);
 
   //Reset the CAN Controller
   digitalWrite(CS,LOW);
@@ -322,9 +389,13 @@ delay(100);
 
 void loop()
 { 
-    //Need to add low power and can interupts
-    
+  // This should be the Low Power Setting
+  if(f_wdt == 1) //this makes sure that the device is alive, and stops sleep until called to sleep again
+  {
     //Error monitoring on ELD side of the BUS
+    //need to change this to check REC (0x1D) rather than EFLG
+
+    //Also need to add the error check EEPROM values here so that it is tunable to the customers
     if(CAN0.getError()&& 0b00000001){
       digitalWrite(SILENT, HIGH);
         while(CAN0.getError()&& 0b00000001){
@@ -333,5 +404,19 @@ void loop()
        delay(50);
       digitalWrite(SILENT, LOW);
     }
+    //Clear the watchdog flag
+    f_wdt = 0;
+
+    //Re-enter sleep mode "Low-Power-Down"
+    enterSleep(); // this will make the device go into a low power mode. 
+
+    /*
+     * We need to add protections to make sure that in the event that this device is plugged in for 
+     * 50 days the code does not get stuck. The watchdog timer can also be used to reset the device
+     * with checks to make sure that the code is still functioning. In the event that the code locks
+     * up. 
+     */
   }
+}
+
 
