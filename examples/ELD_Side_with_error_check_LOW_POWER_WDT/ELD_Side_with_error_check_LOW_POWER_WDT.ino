@@ -165,7 +165,7 @@ void enterSleep(void){
  *****************************************************/
 uint8_t SPI_transfer(uint8_t data){
   uint8_t data_in = 0;
-  DDRB = ~second_bit; // Setting up inputs and outputs for DDRB.
+  DDRB = 0b11111101; // Setting up inputs and outputs for DDRB.
   
   //Use bitwise ORs and ANDs to set and clear bits directly on the port.
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
