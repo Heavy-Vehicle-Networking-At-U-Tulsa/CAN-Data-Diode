@@ -17,7 +17,24 @@
 #define SILENT 11 // Silent trigger pin for the transceiver
 //Note: reference https://github.com/SpenceKonde/ATTinyCore#attiny-261461861 for configuring other pins
 
-
+/* EEPROM Memory Map */
+/* Note: there are 512 bytes of EEPROM on the attiny861 */
+#define CAN_BAUDRATE  0x00 // Previously stored CAN_Bus Baudrate
+#define CAN_MSGCOUNT  0x01 // Amount of messages to be sent
+#define CAN_ID1LSB    0x02 // LSB for request 1
+#define CAN_ID1MSB    0x03 // MSB for request 1
+#define CAN_ID2LSB    0x04 // LSB for request 2
+#define CAN_ID2MSB    0x05 // MSB for request 2
+#define CAN_ID3LSB    0x06 // LSB for request 3
+#define CAN_ID3MSB    0x07 // MSB for request 3
+//0x08-0x20 are reserved for additional request message space. 
+#define MAX_REC       0x21 // When to trigger the silent pin on the transceiver.
+#define EFLG          0x22 // Use EFLG Register rather than the REC register for silent detection
+#define WDT_TIME      0x23 // Configuration of the WDT time interval
+#define WDT_Reset     0x24 // Does the user want to set up the device to reset in the event of a code hang up. 
+#define CAN_send_int  0x25 // Rate at which CAN messages are sent (may be implemented as a method choice)
+#define 
+/* Note: there are 512 bytes of EEPROM on the attiny861 */
 
 /* Watchdog Timer flag */
 volatile int f_wdt=1;
@@ -92,17 +109,23 @@ long unsigned int tick = 0; //one clock signal.
 #define CFG2_Reg    0x29
 #define CFG3_Reg    0x28
 
+/* Register Masks */
+#define first_bit     0b00000001
+#define second_bit    0b00000010
+#define third_bit     0b00000100
+#define fourth_bit    0b00001000
+#define fifth_bit     0b00010000
+#define sixth_bit     0b00100000
+#define seventh_bit   0b01000000
+#define eighth_bit    0b10000000
 
 MCP_CAN CAN0(CS); // passing the Chip Select to the MCP_CAN library
-
 
 /* TEST CAN MESSAGE. NOTE: This will be configured to be read in from EEPROM on start up. I have not developed this yet*/ 
 byte data[8] = {0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0F};
 
 /*This is the previously stored baudrate in EEPROM */
-uint8_t can_Val = EEPROM.read(0x00); //Need to establish a check to ensure that the value here is actually a usable value. 
-
-
+uint8_t can_Val = EEPROM.read(CAN_BAUDRATE); //Need to establish a check to ensure that the value here is actually a usable value. 
 
 /* These are the possible baudrate configurations */
 uint8_t canSpeed[5] = {CAN_250KBS, CAN_500KBS, CAN_125KBS, CAN_666KBS, CAN_1000KBS};
@@ -142,7 +165,7 @@ void enterSleep(void){
  *****************************************************/
 uint8_t SPI_transfer(uint8_t data){
   uint8_t data_in = 0;
-  DDRB = 0b11111101; // Setting up inputs and outputs for DDRB.
+  DDRB = ~second_bit; // Setting up inputs and outputs for DDRB.
   
   //Use bitwise ORs and ANDs to set and clear bits directly on the port.
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
@@ -191,7 +214,8 @@ void mcp2515_setRegister(uint8_t address, uint8_t value){
 
 /******************************************************
  * Name:        config_Rate
- * Description: Changing the BaudRate configuration registers
+ * Description: Changing the BaudRate configuration 
+ *              registers
  *****************************************************/
 uint8_t config_Rate(uint8_t canSpeed){
   /* NTOE: To add more values to these, a bitrate calculator must be used. */
@@ -264,7 +288,9 @@ uint8_t config_Rate(uint8_t canSpeed){
 
 /******************************************************
  * Name:        autobaud
- * Description: Changes the CAN Bus baudrate to determine whether or not the baudrate is properly set.
+ * Description: Changes the CAN Bus baudrate to 
+ *              determine whether or not the baudrate 
+ *              is properly set.
  *****************************************************/
 uint8_t autobaud(){
   
@@ -305,7 +331,9 @@ void flash(uint8_t led){
 
 /******************************************************
  * Name:        error
- * Description: flashes the LED in accordance with a numeric error message. (Similar to OBDI diagnostics lol)
+ * Description: flashes the LED in accordance with a 
+ *              numeric error message. (Similar to 
+ *              OBDI diagnostics lol)
  *****************************************************/
 void error(uint8_t led, uint8_t error){
   for(int i=0; i<=error; ++i){
@@ -327,7 +355,8 @@ void sendFail(uint8_t led){
 
 /******************************************************
  * Name:        sos
- * Description: flashes LED in SOS morse code. Used for unknown territory. 
+ * Description: flashes LED in SOS morse code. Used for 
+ *              unknown territory. 
  *****************************************************/
 void sos(uint8_t led){
   digitalWrite(led, LOW);
@@ -453,7 +482,7 @@ void setup() {
   {
     uint8_t autobaudCan_Val = autobaud();
     if(autobaudCan_Val != can_Val){
-      EEPROM.write(0x00, autobaudCan_Val);
+      EEPROM.write(CAN_BAUDRATE, autobaudCan_Val);
     }
   }  
 
@@ -464,15 +493,16 @@ void loop()
 { 
   // This should be the Low Power Setting allowing the device to sleep for 8 seconds. 
   // This can be changed in the setup by referencing pg. 48 of ATTINY861 Datasheet. 
+  
   if(f_wdt == 1) //this makes sure that the device is alive, and stops sleep until called to sleep again
   {
     //Error monitoring on ELD side of the BUS
     //need to change this to check REC (0x1D) rather than EFLG
 
     //Also need to add the error check EEPROM values here so that it is tunable to the customers
-    if(CAN0.getError()&& 0b00000001){// Check the first bit of the register
+    if(CAN0.getError()&& first_bit){// Check the first bit of the register
       digitalWrite(SILENT, HIGH);
-        while(CAN0.getError()&& 0b00000001){ // wait until the first bit is not 1
+        while(CAN0.getError()&& first_bit){ // wait until the first bit is not 1
           digitalWrite(SILENT, HIGH);
         }
        delay(50); // Additional time to reduce
