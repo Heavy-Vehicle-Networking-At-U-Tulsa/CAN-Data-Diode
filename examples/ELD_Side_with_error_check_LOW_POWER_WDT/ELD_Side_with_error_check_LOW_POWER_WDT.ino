@@ -412,7 +412,7 @@ void setup() {
   SPI_transfer(BIT_MODIFY); // instruction to modify bits
   SPI_transfer(CANCTRL); //Address Byte
   SPI_transfer(0xFF); //mask byte
-  SPI_transfer(CONFIGURE_MODE_CLKOUT_8); //data byte to enable 1 clock out and to enter configuration mode
+  SPI_transfer(CONFIGURE_MODE_CLKOUT_8); //CONFIGURE MODE with clockout divisor of 8
   digitalWrite(CS,HIGH);
 
   delay(100);  
@@ -421,7 +421,7 @@ void setup() {
   SPI_transfer(BIT_MODIFY); // instruction to modify bits
   SPI_transfer(CANCTRL); //Address Byte
   SPI_transfer(0xFF); //mask byte
-  SPI_transfer(CONFIGURE_MODE_CLKOUT_4); //data byte to enable 1 clock out and to enter configuration mode
+  SPI_transfer(CONFIGURE_MODE_CLKOUT_4); //CONFIGURE MODE with clockout divisor of 4
   digitalWrite(CS,HIGH);
 
   delay(100);
@@ -430,7 +430,7 @@ void setup() {
   SPI_transfer(BIT_MODIFY); // instruction to modify bits
   SPI_transfer(CANCTRL); //Address Byte
   SPI_transfer(0xFF); //mask byte
-  SPI_transfer(CONFIGURE_MODE_CLKOUT_2); //data byte to enable 1 clock out and to enter configuration mode
+  SPI_transfer(CONFIGURE_MODE_CLKOUT_2); //CONFIGURE MODE with clockout divisor of 2
   digitalWrite(CS,HIGH);
 
   delay(100);
@@ -439,7 +439,7 @@ void setup() {
   SPI_transfer(BIT_MODIFY); // instruction to modify bits
   SPI_transfer(CANCTRL); //Address Byte
   SPI_transfer(0xFF); //mask byte
-  SPI_transfer(CONFIGURE_MODE_CLKOUT_1); //data byte to enable 1 clock out and to enter configuration mode
+  SPI_transfer(CONFIGURE_MODE_CLKOUT_1); //CONFIGURE MODE with clockout divisor of 1
   digitalWrite(CS,HIGH);
 
   delay(100);
