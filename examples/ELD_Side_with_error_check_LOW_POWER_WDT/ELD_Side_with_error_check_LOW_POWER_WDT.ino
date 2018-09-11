@@ -31,9 +31,10 @@
 #define MAX_REC       0x21 // When to trigger the silent pin on the transceiver.
 #define EFLG          0x22 // Use EFLG Register rather than the REC register for silent detection
 #define WDT_TIME      0x23 // Configuration of the WDT time interval
-#define WDT_Reset     0x24 // Does the user want to set up the device to reset in the event of a code hang up. 
-#define CAN_send_int  0x25 // Rate at which CAN messages are sent (may be implemented as a method choice)
-#define 
+#define WDT_CONF      0x24 // Does the user want to set up the device to reset in the event of a code hang up. 
+#define CAN_ID1_int   0x25 // Rate at which CANID1 messages are sent (may be implemented as a method choice)
+#define CAN_ID2_int   0x26 // Rate at which CANID2 messages are sent (may be implemented as a method choice)
+#define CAN_ID3_int   0x27 // Rate at which CANID3 messages are sent (may be implemented as a method choice)
 /* Note: there are 512 bytes of EEPROM on the attiny861 */
 
 /* Watchdog Timer flag */
