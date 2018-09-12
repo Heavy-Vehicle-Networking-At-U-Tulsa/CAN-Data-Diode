@@ -38,18 +38,6 @@
 //0x28 - 0x33 are reserved for additional CAN intervals 
 /* Note: there are 512 bytes of EEPROM on the attiny861 */
 
-/* Watchdog Timer flag */
-volatile int f_wdt=1;
-
-
-/* Setting up CAN value */
-long unsigned int rxId;
-unsigned char len = 0;
-unsigned char rxBuf[8];
-
-
-long unsigned int tick = 0; //one clock signal.
-
 /* SPI Commands */
 #define RESET       0b11000000
 #define READ_STATUS 0b10100000
@@ -135,13 +123,52 @@ long unsigned int tick = 0; //one clock signal.
 #define seventh_bit   0b01000000
 #define eighth_bit    0b10000000
 
+/* CAN INTERVALS */
+#define minutes5       0x05
+#define minutes10      0x0A
+#define minutes20      0x14
+#define minutes60      0x3C
+
 MCP_CAN CAN0(CS); // passing the Chip Select to the MCP_CAN library
+
+/* Watchdog Timer flag */
+volatile int f_wdt=1;
+
+/* Setting up CAN value */
+long unsigned int rxId;
+unsigned char len = 0;
+unsigned char rxBuf[8];
+
+long unsigned int tick = 0; //one clock signal.
 
 /* TEST CAN MESSAGE. NOTE: This will be configured to be read in from EEPROM on start up. I have not developed this yet*/ 
 byte data[8] = {0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0F};
 
 /* These are the possible baudrate configurations */
-uint8_t canSpeed[5] = {CAN_250KBS, CAN_500KBS, CAN_125KBS, CAN_666KBS, CAN_1000KBS};
+byte canSpeed[5] = {CAN_250KBS, CAN_500KBS, CAN_125KBS, CAN_666KBS, CAN_1000KBS};
+
+/* Pulling EEPROM CONFIG SETTINGS */
+uint8_t can_Val =     EEPROM.read(CAN_BAUDRATE); //Need to establish a check to ensure that the value here is actually a usable value. 
+//Insert check on can_val here we want to check to make sure it is an acceptable value before starting in the event that memory gets corrupted somehow
+
+uint8_t canMsgCount = EEPROM.read(CAN_MSGCOUNT);// Amount of messages to be sent
+uint8_t canId1Lsb =   EEPROM.read(CAN_ID1LSB);  // LSB for request 1
+uint8_t canId1Msb =   EEPROM.read(CAN_ID1MSB);  // MSB for request 1
+uint8_t canId2Lsb =   EEPROM.read(CAN_ID2LSB);  // LSB for request 2
+uint8_t canId2Msb =   EEPROM.read(CAN_ID2MSB);  // MSB for request 2
+//Add other CAN IDs here
+
+/* Building the CAN request data */
+byte canReq1[3] = {canId1Lsb, canId1Msb, 0x00}; // This will be the data field used for the first request message
+byte canReq2[3] = {canId2Lsb, canId2Msb, 0x00}; // This will be the data field used for the second request message
+//Create a new canReq# for any new CAN request messages to be sent. 
+
+uint8_t canReq1Int = EEPROM.read(CAN_ID1_int); // Rate at which CANID1 messages are sent (may be implemented as a method choice)
+uint8_t canReq2Int = EEPROM.read(CAN_ID2_int); // Rate at which CANID2 messages are sent (may be implemented as a method choice)
+  //Add other CAN intervals here
+  
+uint8_t WDT_WAIT_TIME =   EEPROM.read(WDT_TIME);
+uint8_t WDT_SETUP_CONF =  EEPROM.read(WDT_CONF);
 
 /***************************************************
  *  Name:        ISR(WDT_vect)
@@ -532,6 +559,8 @@ void setupWatchDog(){
     }
   }
 
+void buildCanFrames(uint8_t
+
 void setup() {
   
   /* pin mode sets */ 
@@ -549,16 +578,6 @@ void setup() {
   digitalWrite(RED,HIGH); 
   digitalWrite(CS,HIGH);
   digitalWrite(SCK,LOW);
-
-  /* Pulling EEPROM CONFIG SETTINGS */
-  uint8_t can_Val = EEPROM.read(CAN_BAUDRATE); //Need to establish a check to ensure that the value here is actually a usable value. 
-  //Insert a can_val check here. We need to make sure that this is in place in the event that memory is corrupted.  
-  
-  
-  uint8_t EFLG_MODE = EEPROM.read(EFLG);
-  uint8_t REC_TRIGGER = EEPROM.read(MAX_REC);
-  uint8_t WDT_WAIT_TIME = EEPROM.read(WDT_TIME);
-  uint8_t WDT_SETUP_CONF = EEPROM.read(WDT_CONF);
 
   setupWatchDog();
  
@@ -627,28 +646,13 @@ void loop()
 { 
   // This should be the Low Power Setting allowing the device to sleep for 8 seconds. 
   // This can be changed in the setup by referencing pg. 48 of ATTINY861 Datasheet. 
-  
+  uint16_t cycleCount = 0;
+  uint16_t canTimer1 = canReq1Int
   if(f_wdt == 1){ //this makes sure that the device is alive, and stops sleep until called to sleep again
-    //Error monitoring on ELD side of the BUS
-    if(EFLG_MODE != EFLAG_MODE_OFF){
-      if(CAN0.getError()&& first_bit){// Check the first bit of the register
-        digitalWrite(SILENT, HIGH);
-        while(CAN0.getError()&& first_bit){ // wait until the first bit is not 1
-          digitalWrite(SILENT, HIGH);
-          }
-        delay(50); // Additional time to reduce
-        digitalWrite(SILENT, LOW);
-      }
-    }
-    if(EFLG_MODE == EFLAG_MODE_OFF){
-      if(readREC() >= REC_TRIGGER){
-        digitalWrite(SILENT, HIGH);
-        while(readREC() >= REC_TRIGGER){
-        }
-        delay(50);
-        digitalWrite(SILENT, LOW);
-      }
-    }
+   
+    //Insert sending can messages here on a timer. This will be done by implementing the watchdog timer to count for me to the interval.
+    if(cycleCount == 
+   
     //Clear the watchdog flag
     f_wdt = 0;
 
@@ -662,10 +666,6 @@ void loop()
      * up. 
      */
 
-    /*
-     * We also need to discuss how the REC register will reduce if the silent pin is triggered since
-     * register decrements for successful receives. Or if the methodology needs to be changed. 
-     */
   }
 }
 
