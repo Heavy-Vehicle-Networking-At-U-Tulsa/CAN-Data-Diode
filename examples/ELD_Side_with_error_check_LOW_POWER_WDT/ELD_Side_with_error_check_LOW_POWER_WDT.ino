@@ -35,6 +35,7 @@
 #define CAN_ID1_int   0x25 // Rate at which CANID1 messages are sent (may be implemented as a method choice)
 #define CAN_ID2_int   0x26 // Rate at which CANID2 messages are sent (may be implemented as a method choice)
 #define CAN_ID3_int   0x27 // Rate at which CANID3 messages are sent (may be implemented as a method choice)
+//0x28 - 0x33 are reserved for additional CAN interrupts  
 /* Note: there are 512 bytes of EEPROM on the attiny861 */
 
 /* Watchdog Timer flag */
@@ -110,6 +111,20 @@ long unsigned int tick = 0; //one clock signal.
 #define CFG2_Reg    0x29
 #define CFG3_Reg    0x28
 
+/* Watchdog Timer Config */
+#define WDT_8sec        0x21
+#define WDT_4sec        0x20
+#define WDT_2sec        0x07
+#define WDT_1sec        0x06
+
+/* WDT CONF Options */
+#define WDT_INT         0x01
+#define WDT_RESET       0x02
+#define WDT_INT_RESET   0x03
+
+/* ERROR FLAG MODE */
+#define EFLAG_MODE_OFF     0x00
+
 /* Register Masks */
 #define first_bit     0b00000001
 #define second_bit    0b00000010
@@ -125,8 +140,13 @@ MCP_CAN CAN0(CS); // passing the Chip Select to the MCP_CAN library
 /* TEST CAN MESSAGE. NOTE: This will be configured to be read in from EEPROM on start up. I have not developed this yet*/ 
 byte data[8] = {0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0F};
 
-/*This is the previously stored baudrate in EEPROM */
+/* Pulling EEPROM CONFIG SETTINGS */
+// The values used on ELD side
 uint8_t can_Val = EEPROM.read(CAN_BAUDRATE); //Need to establish a check to ensure that the value here is actually a usable value. 
+uint8_t EFLG_MODE = EEPROM.read(EFLG);
+uint8_t REC_TRIGGER = EEPROM.read(MAX_REC);
+uint8_t WDT_WAIT_TIME = EEPROM.read(WDT_TIME);
+uint8_t WDT_SETUP_CONF = EEPROM.read(WDT_CONF);
 
 /* These are the possible baudrate configurations */
 uint8_t canSpeed[5] = {CAN_250KBS, CAN_500KBS, CAN_125KBS, CAN_666KBS, CAN_1000KBS};
@@ -398,6 +418,128 @@ void sos(uint8_t led){
   digitalWrite(led,LOW); 
 }
 
+/******************************************************
+ * Name:        setupWatchDog
+ * Description: Takes input of WDT_SETUP_CONF and
+ *              WDT_WAIT_TIME to configure the WDT.
+ *****************************************************/
+void setupWatchDog(){
+  /*** Setup the WDT ***/
+  if(WDT_SETUP_CONF == WDT_INT){
+    if(WDT_WAIT_TIME == WDT_8sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_8sec; 
+      /* Enable the WD interrupt (note no reset). */
+      WDTCR |= _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_4sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_4sec; 
+      /* Enable the WD interrupt (note no reset). */
+      WDTCR |= _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_2sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_2sec; 
+      /* Enable the WD interrupt (note no reset). */
+      WDTCR |= _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_1sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_1sec; 
+      /* Enable the WD interrupt (note no reset). */
+      WDTCR |= _BV(WDIE);
+    }
+  }
+  else if(WDT_SETUP_CONF == WDT_RESET){
+    if(WDT_WAIT_TIME == WDT_8sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_8sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE);
+    }
+    else if(WDT_WAIT_TIME == WDT_4sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_4sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE);
+    }
+    else if(WDT_WAIT_TIME == WDT_2sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_2sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE);
+    }
+    else if(WDT_WAIT_TIME == WDT_1sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_1sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE);
+    }
+  }
+  else if(WDT_SETUP_CONF == WDT_INT_RESET){
+    if(WDT_WAIT_TIME == WDT_8sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_8sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE) | _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_4sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_4sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE) | _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_2sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_2sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE) | _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_1sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_1sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE) | _BV(WDIE);
+    }
+  }
+
 void setup() {
   
   /* pin mode sets */ 
@@ -416,19 +558,8 @@ void setup() {
   digitalWrite(CS,HIGH);
   digitalWrite(SCK,LOW);
 
-  /*** Setup the WDT ***/
-  /* Clear the reset flag. */
-  MCUSR &= ~(1<<WDRF);
-  
-  /* In order to change WDE or the prescaler, we need to
-   * set WDCE (This will allow updates for 4 clock cycles).
-   */
-  WDTCR |= (1<<WDCE) | (1<<WDE);
-  /* set new watchdog timeout prescaler value */
-  WDTCR = 1<<WDP0 | 1<<WDP3; /* 8.0 seconds */ // This will be read from EEPROM
-  /* Enable the WD interrupt (note no reset). */
-  WDTCR |= _BV(WDIE);
-
+  setupWatchDog();
+ 
   //Reset the CAN Controller
   digitalWrite(CS,LOW);
   SPI_transfer(RESET); //Reset
@@ -495,19 +626,26 @@ void loop()
   // This should be the Low Power Setting allowing the device to sleep for 8 seconds. 
   // This can be changed in the setup by referencing pg. 48 of ATTINY861 Datasheet. 
   
-  if(f_wdt == 1) //this makes sure that the device is alive, and stops sleep until called to sleep again
-  {
+  if(f_wdt == 1){ //this makes sure that the device is alive, and stops sleep until called to sleep again
     //Error monitoring on ELD side of the BUS
-    //need to change this to check REC (0x1D) rather than EFLG
-
-    //Also need to add the error check EEPROM values here so that it is tunable to the customers
-    if(CAN0.getError()&& first_bit){// Check the first bit of the register
-      digitalWrite(SILENT, HIGH);
+    if(EFLG_MODE != EFLAG_MODE_OFF){
+      if(CAN0.getError()&& first_bit){// Check the first bit of the register
+        digitalWrite(SILENT, HIGH);
         while(CAN0.getError()&& first_bit){ // wait until the first bit is not 1
           digitalWrite(SILENT, HIGH);
+          }
+        delay(50); // Additional time to reduce
+        digitalWrite(SILENT, LOW);
+      }
+    }
+    if(EFLG_MODE == EFLAG_MODE_OFF){
+      if(readREC() >= REC_TRIGGER){
+        digitalWrite(SILENT, HIGH);
+        while(readREC() >= REC_TRIGGER){
         }
-       delay(50); // Additional time to reduce
-      digitalWrite(SILENT, LOW);
+        delay(50);
+        digitalWrite(SILENT, LOW);
+      }
     }
     //Clear the watchdog flag
     f_wdt = 0;
