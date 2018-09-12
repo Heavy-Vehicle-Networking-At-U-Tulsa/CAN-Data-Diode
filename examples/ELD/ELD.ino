@@ -561,7 +561,16 @@ void setup() {
   uint8_t WDT_SETUP_CONF = EEPROM.read(WDT_CONF);
 
   setupWatchDog();
- 
+
+  /*Can_val check to make sure bus initializes*/
+  //Gotta make sure the saved value is an acceptable value for the initialization
+  if(can_Val == CAN_250KBS | can_Val == CAN_500KBS | can_Val == CAN_125KBS | can_Val == CAN_666KBS | can_Val == CAN_1000KBS){
+    //Didn't know how else to do a check to only do something if its not true. 
+  }
+  else{
+    can_val == CAN_250KBS;
+  }
+  
   //Reset the CAN Controller
   digitalWrite(CS,LOW);
   SPI_transfer(RESET); //Reset

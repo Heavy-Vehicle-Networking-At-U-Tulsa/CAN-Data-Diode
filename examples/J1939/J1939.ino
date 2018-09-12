@@ -590,7 +590,16 @@ void setup() {
   digitalWrite(SCK,LOW);
 
   setupWatchDog();
-  
+
+  /*Can_val check to make sure bus initializes*/
+  //Gotta make sure the saved value is an acceptable value for the initialization
+  if(can_Val == CAN_250KBS | can_Val == CAN_500KBS | can_Val == CAN_125KBS | can_Val == CAN_666KBS | can_Val == CAN_1000KBS){
+    //Didn't know how else to do a check to only do something if its not true. 
+  }
+  else{
+    can_val == CAN_250KBS;
+  }
+
   /* Calculating the intervals using the setup on watchdog timer to send messages */
   if(WDT_WAIT_TIME == WDT_8sec){
     canReqTrigger1 = (canReq1Int*60)/8;
