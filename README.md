@@ -2,16 +2,13 @@
 Source Code for a Security Device to protect and isolate parts of a CAN on vehicles and other industrial controls.
 # Upload Order
 To upload to the Data Diode for proper functionality:
-	- First configure the device using the EEPROM_MAP.ino sketch
-		- Choose the appropriate settings and make changes as needed for your application
-		- This sketch write the EEPROM memory of the device for the initial start up after
-		this has been completed ONCE it is not necessary to complete again unless settings
-		need to be modified. 
-		- This sketch needs to be uploaded to both sides of the device. 
-	- Second upload the ELD sketch to the ELD side of the Data Diode
-	- Third upload the J1939 sketch to the J1939 side of the Diode
-	- This will allow for the ELD side to function in accordance with the proper ELD config
-	and the J1939 side to operate on the proper config. 
+* First configure the device using the EEPROM_MAP.ino sketch
+* Choose the appropriate settings and make changes as needed for your application
+* This sketch writes the EEPROM memory of the device for the initial start up after this has been completed ONCE it is not necessary to complete again unless settings need to be modified. 
+* This sketch needs to be uploaded to both sides of the device. 
+* Second upload the ELD sketch to the ELD side of the Data Diode
+* Third upload the J1939 sketch to the J1939 side of the Diode
+* This will allow for the ELD side to function in accordance with the proper ELD config and the J1939 side to operate on the proper config. 
 
 # EEPROM MAP
 ![EEPROM MAP](https://github.com/Heavy-Vehicle-Networking-At-U-Tulsa/CAN-Data-Diode/blob/Edit-of-README.md/EEPROM_memory_map.PNG)
