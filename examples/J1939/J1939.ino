@@ -648,6 +648,16 @@ void loop()
   // This can be changed in the setup by referencing pg. 48 of ATTINY861 Datasheet. 
   uint16_t cycleCount = 0;
   uint16_t canTimer1 = canReq1Int
+
+  /* Mental note computer going to die need to setup the timer to divide 3600 seconds into a counter for 8 second intervals to check to see if it has been long enough to send each message
+  *  This will let me also offset the messages by an 8 second or 16 second period naturally. 
+  *  need to actually figure out how to take EEPROM data and convert the values to a number of seconds then divde that number by the current WDT_INT. That will allow me to properly use the 
+  *  watchdog timer in the event that someone changes it to a shorter time interval. 
+  *  
+  *  This should not be very difficult. Wake, Check to see if counter has passed, if not increase the counter by one. If so send desired can mesage and then set the counter back to zero. 
+  *  
+  *  This will allow the sending of messages and intervals properly
+   */
   if(f_wdt == 1){ //this makes sure that the device is alive, and stops sleep until called to sleep again
    
     //Insert sending can messages here on a timer. This will be done by implementing the watchdog timer to count for me to the interval.
