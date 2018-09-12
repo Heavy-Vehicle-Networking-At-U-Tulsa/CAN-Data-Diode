@@ -35,7 +35,7 @@
 #define CAN_ID1_int   0x25 // Rate at which CANID1 messages are sent (may be implemented as a method choice)
 #define CAN_ID2_int   0x26 // Rate at which CANID2 messages are sent (may be implemented as a method choice)
 #define CAN_ID3_int   0x27 // Rate at which CANID3 messages are sent (may be implemented as a method choice)
-//0x28 - 0x33 are reserved for additional CAN interrupts  
+//0x28 - 0x33 are reserved for additional CAN intervals 
 /* Note: there are 512 bytes of EEPROM on the attiny861 */
 
 /* Watchdog Timer flag */
@@ -139,14 +139,6 @@ MCP_CAN CAN0(CS); // passing the Chip Select to the MCP_CAN library
 
 /* TEST CAN MESSAGE. NOTE: This will be configured to be read in from EEPROM on start up. I have not developed this yet*/ 
 byte data[8] = {0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0F};
-
-/* Pulling EEPROM CONFIG SETTINGS */
-// The values used on ELD side
-uint8_t can_Val = EEPROM.read(CAN_BAUDRATE); //Need to establish a check to ensure that the value here is actually a usable value. 
-uint8_t EFLG_MODE = EEPROM.read(EFLG);
-uint8_t REC_TRIGGER = EEPROM.read(MAX_REC);
-uint8_t WDT_WAIT_TIME = EEPROM.read(WDT_TIME);
-uint8_t WDT_SETUP_CONF = EEPROM.read(WDT_CONF);
 
 /* These are the possible baudrate configurations */
 uint8_t canSpeed[5] = {CAN_250KBS, CAN_500KBS, CAN_125KBS, CAN_666KBS, CAN_1000KBS};
@@ -557,6 +549,16 @@ void setup() {
   digitalWrite(RED,HIGH); 
   digitalWrite(CS,HIGH);
   digitalWrite(SCK,LOW);
+
+  /* Pulling EEPROM CONFIG SETTINGS */
+  uint8_t can_Val = EEPROM.read(CAN_BAUDRATE); //Need to establish a check to ensure that the value here is actually a usable value. 
+  if 
+  
+  
+  uint8_t EFLG_MODE = EEPROM.read(EFLG);
+  uint8_t REC_TRIGGER = EEPROM.read(MAX_REC);
+  uint8_t WDT_WAIT_TIME = EEPROM.read(WDT_TIME);
+  uint8_t WDT_SETUP_CONF = EEPROM.read(WDT_CONF);
 
   setupWatchDog();
  

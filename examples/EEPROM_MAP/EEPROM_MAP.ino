@@ -24,7 +24,7 @@
 #define CAN_ID1_int   0x25 // Rate at which CANID1 messages are sent (may be implemented as a method choice)
 #define CAN_ID2_int   0x26 // Rate at which CANID2 messages are sent (may be implemented as a method choice)
 #define CAN_ID3_int   0x27 // Rate at which CANID3 messages are sent (may be implemented as a method choice)
-//0x28 - 0x33 are reserved for additional CAN interrupts        
+//0x28 - 0x33 are reserved for additional CAN intervals      
 
 /* CAN SPEED VALUES */
 #define CAN_250KBS  0x12   // Set a baudrate of 250kbs
