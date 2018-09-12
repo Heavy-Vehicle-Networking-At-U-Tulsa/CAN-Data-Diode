@@ -11,7 +11,7 @@ To upload to the Data Diode for proper functionality:
 * This will allow for the ELD side to function in accordance with the proper ELD config and the J1939 side to operate on the proper config. 
 
 # EEPROM MAP
-![EEPROM MAP](https://github.com/Heavy-Vehicle-Networking-At-U-Tulsa/CAN-Data-Diode/blob/Edit-of-README.md/EEPROM_memory_map.PNG)
+![EEPROM MAP](https://github.com/Heavy-Vehicle-Networking-At-U-Tulsa/CAN-Data-Diode/blob/master/extras/EEPROM_memory_map.PNG)
 
 # Current Objectives
 - add can_val check to ELD sketch to make sure that the EEPROM value is set correctly. 
