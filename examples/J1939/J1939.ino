@@ -129,6 +129,9 @@
 #define minutes20      0x14
 #define minutes60      0x3C
 
+/* CAN ID */
+#define canRequestExtID 0x18EA00F9
+
 MCP_CAN CAN0(CS); // passing the Chip Select to the MCP_CAN library
 
 /* Watchdog Timer flag */
@@ -138,6 +141,7 @@ volatile int f_wdt=1;
 long unsigned int rxId;
 unsigned char len = 0;
 unsigned char rxBuf[8];
+uint8_t autobaudCan_Val = 0;
 
 long unsigned int tick = 0; //one clock signal.
 
@@ -169,6 +173,13 @@ uint8_t canReq2Int = EEPROM.read(CAN_ID2_int); // Rate at which CANID2 messages 
   
 uint8_t WDT_WAIT_TIME =   EEPROM.read(WDT_TIME);
 uint8_t WDT_SETUP_CONF =  EEPROM.read(WDT_CONF);
+
+/* CAN WDT cycle count triggers */
+uint16_t canReqTrigger1 = 0;
+uint16_t canReqTrigger2 = 0;
+uint16_t cycleCount1 = 0;
+uint16_t cycleCount2 = 0;
+
 
 /***************************************************
  *  Name:        ISR(WDT_vect)
@@ -558,7 +569,7 @@ void setupWatchDog(){
       WDTCR |= _BV(WDE) | _BV(WDIE);
     }
   }
-
+}
 
 
 void setup() {
@@ -572,7 +583,6 @@ void setup() {
   pinMode(RED,OUTPUT);
   pinMode(SILENT, OUTPUT);
 
-
   /*setting initial states*/
   digitalWrite(GREEN,HIGH) ;
   digitalWrite(RED,HIGH); 
@@ -580,6 +590,23 @@ void setup() {
   digitalWrite(SCK,LOW);
 
   setupWatchDog();
+  
+  /* Calculating the intervals using the setup on watchdog timer to send messages */
+  if(WDT_WAIT_TIME == WDT_8sec){
+    canReqTrigger1 = (canReq1Int*60)/8;
+  }
+  else if(WDT_WAIT_TIME == WDT_4sec){
+    canReqTrigger1 = (canReq1Int*60)/4;
+  }
+  else if(WDT_WAIT_TIME == WDT_2sec){
+    canReqTrigger1 = (canReq1Int*60)/2;
+  }
+  else if(WDT_WAIT_TIME == WDT_1sec){
+    canReqTrigger1 = (canReq1Int*60);
+  }
+  else{
+    sos(RED);
+  }
  
   //Reset the CAN Controller
   digitalWrite(CS,LOW);
@@ -631,9 +658,8 @@ void setup() {
   
   /*Initialize CAN and then check to make sure you are receiving CAN frames. If not, the autobaud routine 
     determines the proper baudrate value and then writes it to EEPROM */
-  if(CAN0.begin(MCP_ANY, can_Val, MCP_16MHZ)==CAN_OK) //can_Val is the EEPROM saved baudrate 
-  {
-    uint8_t autobaudCan_Val = autobaud();
+  if(CAN0.begin(MCP_ANY, can_Val, MCP_16MHZ)==CAN_OK){ //can_Val is the EEPROM saved baudrate 
+    autobaudCan_Val = autobaud();
     if(autobaudCan_Val != can_Val){
       EEPROM.write(CAN_BAUDRATE, autobaudCan_Val);
     }
@@ -646,28 +672,33 @@ void loop()
 { 
   // This should be the Low Power Setting allowing the device to sleep for 8 seconds. 
   // This can be changed in the setup by referencing pg. 48 of ATTINY861 Datasheet. 
-  uint16_t cycleCount = 0;
-  uint16_t canTimer1 = canReq1Int
 
-  /* Mental note computer going to die need to setup the timer to divide 3600 seconds into a counter for 8 second intervals to check to see if it has been long enough to send each message
-  *  This will let me also offset the messages by an 8 second or 16 second period naturally. 
-  *  need to actually figure out how to take EEPROM data and convert the values to a number of seconds then divde that number by the current WDT_INT. That will allow me to properly use the 
-  *  watchdog timer in the event that someone changes it to a shorter time interval. 
-  *  
-  *  This should not be very difficult. Wake, Check to see if counter has passed, if not increase the counter by one. If so send desired can mesage and then set the counter back to zero. 
-  *  
-  *  This will allow the sending of messages and intervals properly
-   */
   if(f_wdt == 1){ //this makes sure that the device is alive, and stops sleep until called to sleep again
    
     //Insert sending can messages here on a timer. This will be done by implementing the watchdog timer to count for me to the interval.
-    if(cycleCount == 
-   
+    if(cycleCount1 == canReqTrigger1){
+      //send the message constructed from EEPROM for canReq1. 
+      // The Default for this message is request for VIN
+      CAN0.sendMsgBuf(canRequestExtID, 1, 3, canReq1);
+      cycleCount1 = 0;
+    }
+    if(cycleCount2 == canReqTrigger2){
+      //send the message constructed from EEPROM for canReq2. 
+      // The Default for this message is request for Engine Hours
+      CAN0.sendMsgBuf(canRequestExtID, 1, 3, canReq2);
+      cycleCount2 = 0;
+    }
+
+    //Increment the cycle counters
+    cycleCount1++;
+    cycleCount2++;
     //Clear the watchdog flag
     f_wdt = 0;
 
     //Re-enter sleep mode "Low-Power-Down"
+    //Will sleep based on the interval chosen in EEPROM_MAP
     enterSleep(); // this will make the device go into a low power mode. 
+    
 
     /*
      * We need to add protections to make sure that in the event that this device is plugged in for 
