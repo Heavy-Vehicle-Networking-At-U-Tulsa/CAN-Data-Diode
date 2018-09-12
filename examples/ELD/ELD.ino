@@ -38,18 +38,6 @@
 //0x28 - 0x33 are reserved for additional CAN intervals 
 /* Note: there are 512 bytes of EEPROM on the attiny861 */
 
-/* Watchdog Timer flag */
-volatile int f_wdt=1;
-
-
-/* Setting up CAN value */
-long unsigned int rxId;
-unsigned char len = 0;
-unsigned char rxBuf[8];
-
-
-long unsigned int tick = 0; //one clock signal.
-
 /* SPI Commands */
 #define RESET       0b11000000
 #define READ_STATUS 0b10100000
@@ -137,11 +125,26 @@ long unsigned int tick = 0; //one clock signal.
 
 MCP_CAN CAN0(CS); // passing the Chip Select to the MCP_CAN library
 
-/* TEST CAN MESSAGE. NOTE: This will be configured to be read in from EEPROM on start up. I have not developed this yet*/ 
-byte data[8] = {0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0F};
+/* Watchdog Timer flag */
+volatile int f_wdt=1;
+
+/* Setting up CAN value */
+long unsigned int rxId;
+unsigned char len = 0;
+unsigned char rxBuf[8];
+uint8_t autobaudCan_Val =0;
+
+long unsigned int tick = 0; //one clock signal.
 
 /* These are the possible baudrate configurations */
 uint8_t canSpeed[5] = {CAN_250KBS, CAN_500KBS, CAN_125KBS, CAN_666KBS, CAN_1000KBS};
+
+/* Pulling EEPROM CONFIG SETTINGS */
+uint8_t can_Val =         EEPROM.read(CAN_BAUDRATE); //Need to establish a check to ensure that the value here is actually a usable value. 
+uint8_t EFLG_MODE =       EEPROM.read(EFLG);
+uint8_t REC_TRIGGER =     EEPROM.read(MAX_REC);
+uint8_t WDT_WAIT_TIME =   EEPROM.read(WDT_TIME);
+uint8_t WDT_SETUP_CONF =  EEPROM.read(WDT_CONF);
 
 /***************************************************
  *  Name:        ISR(WDT_vect)
@@ -315,7 +318,7 @@ uint8_t autobaud(){
     //
     while((millis() - previousMillis100)<= 100){
       
-    if(CAN0.checkReceive()== CAN_MSGAVAIL){ //Checking to see if canBus frames have come onto the bus
+    if(CAN0.checkReceive() == CAN_MSGAVAIL){ //Checking to see if canBus frames have come onto the bus
       return canSpeed[current_baud];
       }
     if(lastREC <= readREC()){
@@ -416,7 +419,6 @@ void sos(uint8_t led){
  *              WDT_WAIT_TIME to configure the WDT.
  *****************************************************/
 void setupWatchDog(){
-  /*** Setup the WDT ***/
   if(WDT_SETUP_CONF == WDT_INT){
     if(WDT_WAIT_TIME == WDT_8sec){
       /* Clear the reset flag. */
@@ -531,7 +533,7 @@ void setupWatchDog(){
       WDTCR |= _BV(WDE) | _BV(WDIE);
     }
   }
-
+}
 void setup() {
   
   /* pin mode sets */ 
@@ -550,25 +552,19 @@ void setup() {
   digitalWrite(CS,HIGH);
   digitalWrite(SCK,LOW);
 
-  /* Pulling EEPROM CONFIG SETTINGS */
-  uint8_t can_Val = EEPROM.read(CAN_BAUDRATE); //Need to establish a check to ensure that the value here is actually a usable value. 
-  //Insert a can_val check here. We need to make sure that this is in place in the event that memory is corrupted.  
+  /*Can_val check to make sure bus initializes*/
+  //Gotta make sure the saved value is an acceptable value for the initialization
+  if(can_Val != CAN_250KBS && can_Val != CAN_500KBS && can_Val != CAN_125KBS && can_Val != CAN_666KBS && can_Val != CAN_1000KBS){
+    can_Val == CAN_250KBS;
+  }
   
-  
-  uint8_t EFLG_MODE = EEPROM.read(EFLG);
-  uint8_t REC_TRIGGER = EEPROM.read(MAX_REC);
-  uint8_t WDT_WAIT_TIME = EEPROM.read(WDT_TIME);
-  uint8_t WDT_SETUP_CONF = EEPROM.read(WDT_CONF);
 
   setupWatchDog();
 
   /*Can_val check to make sure bus initializes*/
   //Gotta make sure the saved value is an acceptable value for the initialization
-  if(can_Val == CAN_250KBS | can_Val == CAN_500KBS | can_Val == CAN_125KBS | can_Val == CAN_666KBS | can_Val == CAN_1000KBS){
-    //Didn't know how else to do a check to only do something if its not true. 
-  }
-  else{
-    can_val == CAN_250KBS;
+  if(can_Val != CAN_250KBS && can_Val != CAN_500KBS && can_Val != CAN_125KBS && can_Val != CAN_666KBS && can_Val != CAN_1000KBS){
+    can_Val = CAN_250KBS;
   }
   
   //Reset the CAN Controller
@@ -623,7 +619,7 @@ void setup() {
     determines the proper baudrate value and then writes it to EEPROM */
   if(CAN0.begin(MCP_ANY, can_Val, MCP_16MHZ)==CAN_OK) //can_Val is the EEPROM saved baudrate 
   {
-    uint8_t autobaudCan_Val = autobaud();
+    autobaudCan_Val = autobaud();
     if(autobaudCan_Val != can_Val){
       EEPROM.write(CAN_BAUDRATE, autobaudCan_Val);
     }
