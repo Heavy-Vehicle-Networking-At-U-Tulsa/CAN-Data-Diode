@@ -14,8 +14,7 @@ To upload to the Data Diode for proper functionality:
 ![EEPROM MAP](https://github.com/Heavy-Vehicle-Networking-At-U-Tulsa/CAN-Data-Diode/blob/master/extras/EEPROM_memory_map.PNG)
 
 # Current Objectives
-- add can_val check to ELD sketch to make sure that the EEPROM value is set correctly. 
-- add a J1939 sketch
+- Review code and Test to ensure functionality.
 
 # Discussion Topics
  - We need to add protections to make sure that in the event that the device is plugged in for 50 days straight the
