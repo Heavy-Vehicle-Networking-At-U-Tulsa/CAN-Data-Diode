@@ -534,39 +534,8 @@ void setupWatchDog(){
     }
   }
 }
-void setup() {
-  
-  /* pin mode sets */ 
-  pinMode(CS,OUTPUT);
-  pinMode(SCK,OUTPUT);
-  pinMode(DI,INPUT_PULLUP);
-  pinMode(DO,OUTPUT);
-  pinMode(GREEN,OUTPUT);
-  pinMode(RED,OUTPUT);
-  pinMode(SILENT, OUTPUT);
 
-
-  /*setting initial states*/
-  digitalWrite(GREEN,HIGH) ;
-  digitalWrite(RED,HIGH); 
-  digitalWrite(CS,HIGH);
-  digitalWrite(SCK,LOW);
-
-  /*Can_val check to make sure bus initializes*/
-  //Gotta make sure the saved value is an acceptable value for the initialization
-  if(can_Val != CAN_250KBS && can_Val != CAN_500KBS && can_Val != CAN_125KBS && can_Val != CAN_666KBS && can_Val != CAN_1000KBS){
-    can_Val == CAN_250KBS;
-  }
-  
-
-  setupWatchDog();
-
-  /*Can_val check to make sure bus initializes*/
-  //Gotta make sure the saved value is an acceptable value for the initialization
-  if(can_Val != CAN_250KBS && can_Val != CAN_500KBS && can_Val != CAN_125KBS && can_Val != CAN_666KBS && can_Val != CAN_1000KBS){
-    can_Val = CAN_250KBS;
-  }
-  
+void setupMCP(){
   //Reset the CAN Controller
   digitalWrite(CS,LOW);
   SPI_transfer(RESET); //Reset
@@ -611,6 +580,40 @@ void setup() {
   digitalWrite(CS,HIGH);
 
   delay(100);
+}
+
+void setup() {
+  
+  /* pin mode sets */ 
+  pinMode(CS,OUTPUT);
+  pinMode(SCK,OUTPUT);
+  pinMode(DI,INPUT_PULLUP);
+  pinMode(DO,OUTPUT);
+  pinMode(GREEN,OUTPUT);
+  pinMode(RED,OUTPUT);
+  pinMode(SILENT, OUTPUT);
+
+  /*setting initial states*/
+  digitalWrite(GREEN,HIGH) ;
+  digitalWrite(RED,HIGH); 
+  digitalWrite(CS,HIGH);
+  digitalWrite(SCK,LOW);
+
+  /*Can_val check to make sure bus initializes*/
+  //Gotta make sure the saved value is an acceptable value for the initialization
+  if(can_Val != CAN_250KBS && can_Val != CAN_500KBS && can_Val != CAN_125KBS && can_Val != CAN_666KBS && can_Val != CAN_1000KBS){
+    can_Val == CAN_250KBS;
+  }
+
+  setupWatchDog();
+
+  /*Can_val check to make sure bus initializes*/
+  //Gotta make sure the saved value is an acceptable value for the initialization
+  if(can_Val != CAN_250KBS && can_Val != CAN_500KBS && can_Val != CAN_125KBS && can_Val != CAN_666KBS && can_Val != CAN_1000KBS){
+    can_Val = CAN_250KBS;
+  }
+  
+  setupMCP();
 
   flash(GREEN);
   flash(RED);
