@@ -111,6 +111,17 @@ long unsigned int tick = 0; //one clock signal.
 #define CFG2_Reg    0x29
 #define CFG3_Reg    0x28
 
+/* Watchdog Timer Config */
+#define WDT_8sec        0x21
+#define WDT_4sec        0x20
+#define WDT_2sec        0x07
+#define WDT_1sec        0x06
+
+/* WDT CONF Options */
+#define WDT_INT         0x01
+#define WDT_RESET       0x02
+#define WDT_INT_RESET   0x03
+
 /* ERROR FLAG MODE */
 #define EFLAG_MODE_OFF     0x00
 
@@ -407,6 +418,128 @@ void sos(uint8_t led){
   digitalWrite(led,LOW); 
 }
 
+/******************************************************
+ * Name:        setupWatchDog
+ * Description: Takes input of WDT_SETUP_CONF and
+ *              WDT_WAIT_TIME to configure the WDT.
+ *****************************************************/
+void setupWatchDog(){
+  /*** Setup the WDT ***/
+  if(WDT_SETUP_CONF == WDT_INT){
+    if(WDT_WAIT_TIME == WDT_8sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_8sec; 
+      /* Enable the WD interrupt (note no reset). */
+      WDTCR |= _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_4sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_4sec; 
+      /* Enable the WD interrupt (note no reset). */
+      WDTCR |= _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_2sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_2sec; 
+      /* Enable the WD interrupt (note no reset). */
+      WDTCR |= _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_1sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_1sec; 
+      /* Enable the WD interrupt (note no reset). */
+      WDTCR |= _BV(WDIE);
+    }
+  }
+  else if(WDT_SETUP_CONF == WDT_RESET){
+    if(WDT_WAIT_TIME == WDT_8sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_8sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE);
+    }
+    else if(WDT_WAIT_TIME == WDT_4sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_4sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE);
+    }
+    else if(WDT_WAIT_TIME == WDT_2sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_2sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE);
+    }
+    else if(WDT_WAIT_TIME == WDT_1sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_1sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE);
+    }
+  }
+  else if(WDT_SETUP_CONF == WDT_INT_RESET){
+    if(WDT_WAIT_TIME == WDT_8sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_8sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE) | _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_4sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_4sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE) | _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_2sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_2sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE) | _BV(WDIE);
+    }
+    else if(WDT_WAIT_TIME == WDT_1sec){
+      /* Clear the reset flag. */
+      MCUSR &= ~(1<<WDRF);
+      WDTCR |= (1<<WDCE) | (1<<WDE);
+      /* set new watchdog timeout prescaler value */
+      WDTCR |= WDT_1sec; 
+      /* Enable the WD reset. */
+      WDTCR |= _BV(WDE) | _BV(WDIE);
+    }
+  }
+
 void setup() {
   
   /* pin mode sets */ 
@@ -425,19 +558,8 @@ void setup() {
   digitalWrite(CS,HIGH);
   digitalWrite(SCK,LOW);
 
-  /*** Setup the WDT ***/
-  /* Clear the reset flag. */
-  MCUSR &= ~(1<<WDRF);
-  
-  /* In order to change WDE or the prescaler, we need to
-   * set WDCE (This will allow updates for 4 clock cycles).
-   */
-  WDTCR |= (1<<WDCE) | (1<<WDE);
-  /* set new watchdog timeout prescaler value */
-  WDTCR = 1<<WDP0 | 1<<WDP3; /* 8.0 seconds */ // This will be read from EEPROM
-  /* Enable the WD interrupt (note no reset). */
-  WDTCR |= _BV(WDIE);
-
+  setupWatchDog();
+ 
   //Reset the CAN Controller
   digitalWrite(CS,LOW);
   SPI_transfer(RESET); //Reset

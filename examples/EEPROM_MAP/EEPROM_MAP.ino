@@ -47,10 +47,10 @@
 //Use this space to define additional request messages
 
 /* Watchdog Timer Config */
-#define WDT_8sec        0x08
-#define WDT_4sec        0x04
-#define WDT_2sec        0x02
-#define WDT_1sec        0x01
+#define WDT_8sec        0x21
+#define WDT_4sec        0x20
+#define WDT_2sec        0x07
+#define WDT_1sec        0x06
 
 /* WDT CONF Options */
 #define WDT_INT         0x01
