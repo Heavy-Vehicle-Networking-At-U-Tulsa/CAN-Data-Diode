@@ -1,5 +1,5 @@
-#include <mcp_can.h>
-#include <mcp_can_dfs.h>
+#include <CANDataDiode.h>
+#include <CANDataDiode_dfs.h>
 #include <util/atomic.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
