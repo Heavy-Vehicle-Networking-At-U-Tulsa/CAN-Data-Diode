@@ -1,5 +1,3 @@
-#include <CANDataDiode.h>
-#include <CANDataDiode_dfs.h>
 #include <util/atomic.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
@@ -8,15 +6,18 @@
 /*************************************************/
 
 /* PIN Defines */
-#define GREEN 10 // Pin for the Green LED
-#define RED 14 // Red LED pin
-#define CS 6 // The chip select pin for SPI
-#define SCK 7 // Clock Source 
-#define DO 9  // Data OUT
-#define DI 8 // Data IN
-#define SILENT 11 // Silent trigger pin for the transceiver
+#define GREEN   10 // Pin for the Green LED
+#define RED     14 // Red LED pin
+#define CS       6 // The chip select pin for SPI
+#define SCK      7 // SPI Clock Source 
+#define DO       9 // SPI Data OUT
+#define DI       8 // SPI Data IN
+#define SILENT  11 // Silent trigger pin for the Diode transceiver
 #define CAN_INT 13 // Interrupt pin from the MCP25265
 //Note: reference https://github.com/SpenceKonde/ATTinyCore#attiny-261461861 for configuring other pins
+
+
+
 
 /* EEPROM Memory Map */
 /* Note: there are 512 bytes of EEPROM on the attiny861 */
@@ -40,15 +41,22 @@
 /* Note: there are 512 bytes of EEPROM on the attiny861 */
 
 /* SPI Commands */
-#define RESET       0b11000000
-#define READ_STATUS 0b10100000
-#define BIT_MODIFY  0b00000101
-#define WRITE       0b00000010
-#define READ        0b00000011
+#define RESET            0b11000000
+#define READ_STATUS      0b10100000
+#define BIT_MODIFY       0b00000101
+#define WRITE            0b00000010
+#define READ             0b00000011
+#define READ_RX_BUFFER_0 0b10010000
+#define READ_RX_BUFFER_1 0b10010100
 
 /* Check Receive Possible returns */
 #define CAN_MSGAVAIL       3
 #define CAN_NOMSG          4
+
+// Interrupt Flag Code bits in the CANSTAT Register
+#define MCP_STAT_RXB_MASK 0b00001110
+#define MCP_STAT_RXB0_INT 0b00001100
+#define MCP_STAT_RXB1_INT 0b00001110
 
 /* SPI PIN low level defines */
 #define PIN_PB0     0b00000001
@@ -96,9 +104,16 @@
 /* MCP25265 Registers */
 #define REC         0x1D
 #define CANCTRL     0x0F
+#define CANSTAT     0x0E // CAN Status Register
 #define CFG1_Reg    0x2A
 #define CFG2_Reg    0x29
 #define CFG3_Reg    0x28
+#define CANINTF     0x2C //Interrupt Flags
+#define CANINTE     0x2B //Interrupt Enables
+#define EFLAG       0x2D // Error Flag
+#define RXB0CTRL    0x60
+#define RXB1CTRL    0x70
+
 
 /* Watchdog Timer Config */
 #define WDT_8sec        0x21
@@ -110,6 +125,9 @@
 #define WDT_INT         0x01
 #define WDT_RESET       0x02
 #define WDT_INT_RESET   0x03
+#define EFLG_MODE       0x00
+#define WDT_WAIT_TIME   WDT_8sec
+uint8_t WDT_SETUP_CONF;
 
 /* ERROR FLAG MODE */
 #define EFLAG_MODE_OFF     0x00
@@ -124,31 +142,29 @@
 #define seventh_bit   0b01000000
 #define eighth_bit    0b10000000
 
-MCP_CAN CAN0(CS); // passing the Chip Select to the MCP_CAN library
-
 /* Watchdog Timer flag */
-volatile int f_wdt = 1;
+volatile bool f_wdt = 1;
 
 /* Setting up CAN value */
-long unsigned int rxId;
-unsigned char len = 0;
-unsigned char rxBuf[8];
+uint32_t rxId;
+uint8_t  len = 0;
+uint8_t  rxBuf[8];
+uint8_t  buf[13]; //Includes ID DLC and DATA
+
 uint8_t autobaudCan_Val = 0;
-
-long unsigned int tick = 0; //one clock signal.
-
 uint8_t can_Val;
-uint8_t EFLG_MODE ;
-uint8_t REC_TRIGGER;
-uint8_t WDT_WAIT_TIME ;
-uint8_t WDT_SETUP_CONF;
+
 /* These are the possible baudrate configurations */
 uint8_t canSpeed[5] = {CAN_250KBS, CAN_500KBS, CAN_125KBS, CAN_666KBS, CAN_1000KBS};
 
 uint32_t currentMillis;
 uint32_t previousMillis;
+uint32_t previousRECmillis;
+
+uint8_t tick; //one clock signal.
 
 bool GREEN_STATE;
+bool RED_STATE;
 
 /***************************************************
     Name:        ISR(WDT_vect)
@@ -185,7 +201,7 @@ void enterSleep(void) {
  *****************************************************/
 uint8_t SPI_transfer(uint8_t data) {
   uint8_t data_in = 0;
-  DDRB = 0b11111101; // Setting up inputs and outputs for DDRB.
+ // DDRB = 0b11111101; // Setting up inputs and outputs for DDRB.
 
   //Use bitwise ORs and ANDs to set and clear bits directly on the port.
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
@@ -211,29 +227,28 @@ uint8_t SPI_transfer(uint8_t data) {
    Description: reads the current value in the Receive Error Count Register
  *****************************************************/
 uint8_t readREC() {
-  uint8_t ret;
-  digitalWrite(CS, LOW);
-  SPI_transfer(READ);
-  SPI_transfer(REC);
-  ret = SPI_transfer(0x00); //sending 00s allows the return data to be built
-  digitalWrite(CS, HIGH);
-  return ret;
+  return readRegister(REC);
 }
 
 /******************************************************
-   Name:        resetINT
-   Description: resets the INT pin on the CAN Controller
+   Name:        setINT
+   Description: Enable interrupts on the CAN Controller
  *****************************************************/
 uint8_t setINT() {
   uint8_t ret;
   digitalWrite(CS, LOW);
   SPI_transfer(WRITE);
-  SPI_transfer(0x2B);
+  SPI_transfer(CANINTE);
   ret = SPI_transfer(0x03); //sending 00s allows the return data to be built
   digitalWrite(CS, HIGH);
   return ret;
 }
 
+
+/******************************************************
+   Name:        resetINT
+   Description: resets the INT pin on the CAN Controller
+ *****************************************************/
 uint8_t resetINT() {
   uint8_t ret;
   digitalWrite(CS, LOW);
@@ -246,15 +261,76 @@ uint8_t resetINT() {
 
 
 /******************************************************
-   Name:        mcp2515_setRegister
+   Name:        setRegister
    Description: Directly writing values to MCP registers.
  *****************************************************/
-void mcp2515_setRegister(uint8_t address, uint8_t value) {
+void setRegister(uint8_t address, uint8_t value) {
   digitalWrite(CS, LOW);
   SPI_transfer(WRITE); //Write command
   SPI_transfer(address);
   SPI_transfer(value);
   digitalWrite(CS, HIGH);
+}
+
+/******************************************************
+   Name:        modifyRegister
+   Description: Directly writing values to MCP registers.
+ *****************************************************/
+void modifyRegister(uint8_t address, uint8_t mask, uint8_t value) {
+  digitalWrite(CS, LOW);
+  SPI_transfer(BIT_MODIFY); //Write command
+  SPI_transfer(address);
+  SPI_transfer(mask);
+  SPI_transfer(value);
+  digitalWrite(CS, HIGH);
+}
+
+/******************************************************
+   Name:        readRegister
+   Description: Directly writing values to MCP registers.
+ *****************************************************/
+uint8_t readRegister(uint8_t address){
+  uint8_t ret;
+  digitalWrite(CS, LOW);
+  SPI_transfer(READ);
+  SPI_transfer(address);
+  ret = SPI_transfer(0x00); //sending 00s allows the return data to be built
+  digitalWrite(CS, HIGH);
+  return ret;
+}
+
+/******************************************************
+   Name:        ReadRXBuffers
+   Description: sequentially read from MCP registers.
+ *****************************************************/
+void readRXBuffer0(uint8_t *buf){
+  digitalWrite(CS, LOW);
+  SPI_transfer(READ_RX_BUFFER_0); //Read Receive Buffer 0, start at RXB0SIDH (0x61)
+  for (uint8_t i = 0; i<13; i++){
+    buf[i] = SPI_transfer(0x00); //sending 00s allows the return data to be built
+  }
+  digitalWrite(CS, HIGH); //Pulling pin back high should clear CANINTF
+  // Clear flags just in case
+  modifyRegister(CANINTF,0x03,0x00);
+}
+
+void readRXBuffer1(uint8_t *buf){
+  uint8_t ret;
+  digitalWrite(CS, LOW);
+  SPI_transfer(READ_RX_BUFFER_1); //Read Receive Buffer 1, start at RXB1SIDH (0x71)
+  for (uint8_t i = 0; i<13; i++){
+    buf[i] = SPI_transfer(0x00); //sending 00s allows the return data to be built
+  }
+  digitalWrite(CS, HIGH); //Pulling pin back high should clear CANINTF
+  // Clear flags just in case
+  modifyRegister(CANINTF,0x03,0x00);
+}
+
+bool checkReceive(){
+  uint8_t ret;
+  ret = readRegister(CANINTF) & 0x03;
+  if ( ret > 0 ) return true;
+  else return false;  
 }
 
 /******************************************************
@@ -306,26 +382,10 @@ uint8_t config_Rate(uint8_t canSpeed) {
   }
 
   if (sets) {
-    digitalWrite(CS, LOW);
-    SPI_transfer(BIT_MODIFY); // instruction to modify bits
-    SPI_transfer(CANCTRL); //Address Byte
-    SPI_transfer(0xFF); //mask byte
-    SPI_transfer(CONFIGURE_MODE_CLKOUT_1); //CONFIGURE MODE with clockout divisor of 1
-    digitalWrite(CS, HIGH);
-    delay(100);
-
-    mcp2515_setRegister(CFG1_Reg, cfg1);
-    mcp2515_setRegister(CFG2_Reg, cfg2);
-    mcp2515_setRegister(CFG3_Reg, cfg3);
-
-    digitalWrite(CS, LOW);
-    SPI_transfer(BIT_MODIFY); // instruction to modify bits
-    SPI_transfer(CANCTRL); //Address Byte
-    SPI_transfer(0xFF); //mask byte
-    SPI_transfer(NORMAL_MODE_CLKOUT_1); //NORMAL MODE with Clockout divisor of 1
-    digitalWrite(CS, HIGH);
-    delay(100);
-
+    // Must be in config mode first
+    setRegister(CFG1_Reg, cfg1);
+    setRegister(CFG2_Reg, cfg2);
+    setRegister(CFG3_Reg, cfg3);
     return 0;
   }
   return 1;
@@ -340,14 +400,24 @@ uint8_t config_Rate(uint8_t canSpeed) {
 uint8_t autobaud() {
 
   uint32_t previousMillis100 = millis();
+  uint32_t previousMillis50000 = millis();
   int current_baud = 0;
   int lastREC = readREC();
 
+  //clear all interrupts
+  modifyRegister(CANINTF,0xFF, 0x00);
+  
   while (true) {
-    //
+    // TODO: What happens when installed on a quiet bus?
+    // Need to wait a couple minutes, then sleep.
+    if ((millis() - previousMillis50000) >= 50000){
+      previousMillis50000 = millis();
+      //goToSleep();
+    }
+    
     while ((millis() - previousMillis100) <= 100) {
 
-      if (CAN0.checkReceive() == CAN_MSGAVAIL) { //Checking to see if canBus frames have come onto the bus
+      if (checkReceive()) { //Checking to see if canBus frames have come onto the bus
         return canSpeed[current_baud];
       }
       if (lastREC <= readREC()) {
@@ -359,7 +429,9 @@ uint8_t autobaud() {
     if (current_baud >= 5) {
       current_baud = 0;
     }
+    modifyRegister(CANCTRL, 0xFF, CONFIGURE_MODE_CLKOUT_1);
     config_Rate(canSpeed[current_baud]);
+    modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1);
     previousMillis100 = millis(); // moved this to after the config_Rate to prevent immediate escape of the while loop.
   }
 }
@@ -398,53 +470,10 @@ void sendFail(uint8_t led) {
   digitalWrite(led, LOW);
 }
 
-/******************************************************
-   Name:        sos
-   Description: flashes LED in SOS morse code. Used for
-                unknown territory.
- *****************************************************/
-void sos(uint8_t led) {
-  digitalWrite(led, LOW);
-  digitalWrite(led, HIGH);
-  delay(25);
-  digitalWrite(led, LOW);
-  delay(50);
-  digitalWrite(led, HIGH);
-  delay(25);
-  digitalWrite(led, LOW);
-  delay(50);
-  digitalWrite(led, HIGH);
-  delay(25);
-  digitalWrite(led, LOW);
-  delay(50);
-  digitalWrite(led, HIGH);
-  delay(100);
-  digitalWrite(led, LOW);
-  delay(50);
-  digitalWrite(led, HIGH);
-  delay(100);
-  digitalWrite(led, LOW);
-  delay(50);
-  digitalWrite(led, HIGH);
-  delay(100);
-  digitalWrite(led, LOW);
-  delay(50);
-  digitalWrite(led, HIGH);
-  delay(25);
-  digitalWrite(led, LOW);
-  delay(50);
-  digitalWrite(led, HIGH);
-  delay(25);
-  digitalWrite(led, LOW);
-  delay(50);
-  digitalWrite(led, HIGH);
-  delay(25);
-  digitalWrite(led, LOW);
-}
 
 /******************************************************
    Name:        setupWatchDog
-   Description: Takes input of WDT_SETUP_CONF and
+   Description: Requires definition of WDT_SETUP_CONF and
                 WDT_WAIT_TIME to configure the WDT.
  *****************************************************/
 void setupWatchDog() {
@@ -572,44 +601,51 @@ void setupMCP() {
 
   delay(10); //allow time to reset
 
+  // Put into 16MHz configure mode
+  modifyRegister(CANCTRL, 0xFF, CONFIGURE_MODE_CLKOUT_1);
 
-  // The following sequence is the only way we could get the clkout divisor to stay at 1
+  //Turns off masks and filters to receive all in the RX Buffer Control Registers
+  setRegister(RXB0CTRL, 0b01100000);
+  setRegister(RXB1CTRL, 0b01100000);
 
-  //  digitalWrite(CS,LOW);
-  //  SPI_transfer(BIT_MODIFY); // instruction to modify bits
-  //  SPI_transfer(CANCTRL); //Address Byte
-  //  SPI_transfer(0xFF); //mask byte
-  //  SPI_transfer(CONFIGURE_MODE_CLKOUT_8); //CONFIGURE MODE with clockout divisor of 8
-  //  digitalWrite(CS,HIGH);
-  //
-  //  delay(100);
-  //
-  //  digitalWrite(CS,LOW);
-  //  SPI_transfer(BIT_MODIFY); // instruction to modify bits
-  //  SPI_transfer(CANCTRL); //Address Byte
-  //  SPI_transfer(0xFF); //mask byte
-  //  SPI_transfer(CONFIGURE_MODE_CLKOUT_4); //CONFIGURE MODE with clockout divisor of 4
-  //  digitalWrite(CS,HIGH);
-  //
-  //  delay(100);
-  //
-  //  digitalWrite(CS,LOW);
-  //  SPI_transfer(BIT_MODIFY); // instruction to modify bits
-  //  SPI_transfer(CANCTRL); //Address Byte
-  //  SPI_transfer(0xFF); //mask byte
-  //  SPI_transfer(CONFIGURE_MODE_CLKOUT_2); //CONFIGURE MODE with clockout divisor of 2
-  //  digitalWrite(CS,HIGH);
-  //
-  //  delay(100);
+  //Set Interrupt Enable Register
+  // Enable Message Error Inrerrupt (bit 7)
+  // Disable Wakeup Interrupt
+  // Enable in Error Flag Register Change
+  // Disable on Transmit Buffer 2
+  // Disable on Transmit Buffer 1
+  // Disable on Transmit Buffer 0
+  // Enable on Receive Buffer 1
+  // Enable on Receive Buffer 0
+  modifyRegister(CANINTE, 0xFF, 0b10100011);
 
-  digitalWrite(CS, LOW);
-  SPI_transfer(BIT_MODIFY); // instruction to modify bits
-  SPI_transfer(CANCTRL); //Address Byte
-  SPI_transfer(0xFF); //mask byte
-  SPI_transfer(CONFIGURE_MODE_CLKOUT_1); //CONFIGURE MODE with clockout divisor of 1
-  digitalWrite(CS, HIGH);
+  /* Pulling EEPROM CONFIG SETTINGS */
+  uint8_t can_Val = EEPROM.read(CAN_BAUDRATE); 
 
-  delay(100);
+  /*Can_val check to make sure bus initializes
+   Need to make sure the saved value is an acceptable value for the initialization */
+  if (    can_Val != CAN_250KBS 
+       && can_Val != CAN_500KBS 
+       && can_Val != CAN_125KBS 
+       && can_Val != CAN_666KBS 
+       && can_Val != CAN_1000KBS) 
+  {
+    can_Val == CAN_250KBS;
+  }
+ 
+  can_Val = CAN_250KBS;
+  
+  // Set the bit rate configuration registers
+  config_Rate(can_Val);
+
+  // Set into normal mode
+  modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1); 
+
+//  autobaudCan_Val = autobaud();
+//  if (autobaudCan_Val != can_Val) {
+//      EEPROM.write(CAN_BAUDRATE, autobaudCan_Val);
+//  }
+ 
 }
 
 void setup() {
@@ -622,59 +658,24 @@ void setup() {
   pinMode(GREEN, OUTPUT);
   pinMode(RED, OUTPUT);
   pinMode(SILENT, OUTPUT);
+  pinMode(CAN_INT, INPUT);
 
   /*setting initial states*/
+  digitalWrite(SILENT, LOW);
   digitalWrite(GREEN, HIGH) ;
   digitalWrite(RED, HIGH);
   digitalWrite(CS, HIGH);
   digitalWrite(SCK, LOW);
-
-  /* Pulling EEPROM CONFIG SETTINGS */
-  uint8_t can_Val =         EEPROM.read(CAN_BAUDRATE); //Need to establish a check to ensure that the value here is actually a usable value.
-  uint8_t EFLG_MODE =       0;//EEPROM.read(EFLG);
-  uint8_t REC_TRIGGER =     5; EEPROM.read(MAX_REC);
-  uint8_t WDT_WAIT_TIME =   EEPROM.read(WDT_TIME);
-  uint8_t WDT_SETUP_CONF =  EEPROM.read(WDT_CONF);
-
-
-  /*Can_val check to make sure bus initializes*/
-  //Gotta make sure the saved value is an acceptable value for the initialization
-  if (can_Val != CAN_250KBS && can_Val != CAN_500KBS && can_Val != CAN_125KBS && can_Val != CAN_666KBS && can_Val != CAN_1000KBS) {
-    can_Val == CAN_250KBS;
-  }
-
+  digitalWrite(DO, LOW);
+  
   setupWatchDog();
-
-  //  /*Can_val check to make sure bus initializes*/
-  //  //Gotta make sure the saved value is an acceptable value for the initialization
-  //  if(can_Val != CAN_250KBS && can_Val != CAN_500KBS && can_Val != CAN_125KBS && can_Val != CAN_666KBS && can_Val != CAN_1000KBS){
-  //    can_Val = CAN_250KBS;
-  //  }
-
+  
   setupMCP();
 
-  setINT();
 
   flash(GREEN);
   flash(RED);
-
-  /*Initialize CAN and then check to make sure you are receiving CAN frames. If not, the autobaud routine
-    determines the proper baudrate value and then writes it to EEPROM */
-  if (CAN0.begin(MCP_ANY, can_Val, MCP_16MHZ) == CAN_OK) //can_Val is the EEPROM saved baudrate
-  {
-    autobaudCan_Val = autobaud();
-    if (autobaudCan_Val != can_Val) {
-      EEPROM.write(CAN_BAUDRATE, autobaudCan_Val);
-    }
-  }
-  digitalWrite(SILENT, LOW);
-  
-  digitalWrite(CS, LOW);
-  SPI_transfer(BIT_MODIFY); // instruction to modify bits
-  SPI_transfer(CANCTRL); //Address Byte
-  SPI_transfer(0xFF); //mask byte
-  SPI_transfer(NORMAL_MODE_CLKOUT_1); //CONFIGURE MODE with clockout divisor of 1
-  digitalWrite(CS, HIGH);
+  modifyRegister(CANINTF,0xFF,0x00);
   
 }
 
@@ -682,80 +683,33 @@ void loop()
 {
   currentMillis = millis();
 
-  bool int_pin = digitalRead(CAN_INT);
+  // Blink for as long as there are REC Errors
+  uint8_t rec = readREC();
+  if (rec){
+    if ((currentMillis - previousRECmillis) > rec){
+      previousRECmillis = currentMillis;
+      RED_STATE = !RED_STATE;
+    }
+  }
+  else {
+    RED_STATE = 0;
+  }
+  digitalWrite(RED, RED_STATE);
   
-  if (CAN0.readMsgBuf(&rxId, &len, rxBuf)){
-    GREEN_STATE = ~GREEN_STATE;
+
+  if (readRegister(CANINTF) & 0x01) {
+    readRXBuffer0(buf); // Read RXBuffer0 and clear interrupt flag
+    //modifyRegister(CANINTF,0x01,0x00);
+    GREEN_STATE = !GREEN_STATE;
+  }
+  if (readRegister(CANINTF) & 0x02){
+    readRXBuffer1(buf); // Read RXBuffer1 and clear interrupt flag
+    //modifyRegister(CANINTF,0x02,0x00);
+    GREEN_STATE = !GREEN_STATE;
   }
   digitalWrite(GREEN, GREEN_STATE);
-
-  if (readREC() >= 250) { // Check the receive error counter
-        digitalWrite(SILENT, HIGH);
-        digitalWrite(RED, HIGH);
-        delay(100);
-//        previousMillis = millis();
-//        while ((millis() - previousMillis) < 1000){
-//          if (readREC() == 0) break; // quit if the error count is zero
-//        }
-        digitalWrite(SILENT, LOW);
-        digitalWrite(RED, LOW);
-        delay(100);
-  }
-
-//  if (currentMillis - previousMillis > 1000) {
-//    // The bus has been quiet for a little while.
-//    //Clear the watchdog flag
-//    f_wdt = 0;
-//
-//    //Re-enter sleep mode "Low-Power-Down"
-//    enterSleep(); // this will make the device go into a low power mode.
-//
-//  }
-  // This should be the Low Power Setting allowing the device to sleep for 8 seconds.
-  // This can be changed in the setup by referencing pg. 48 of ATTINY861 Datasheet.
-
-//  if (f_wdt == 1) { //this makes sure that the device is alive, and stops sleep until called to sleep again
-//    //Error monitoring on ELD side of the BUS
-//    if (EFLG_MODE != EFLAG_MODE_OFF) {
-//      if (CAN0.getError() && first_bit) { // Check the first bit of the register
-//        digitalWrite(SILENT, HIGH);
-//        digitalWrite(RED, HIGH);       
-//        while (CAN0.getError() && first_bit) { // wait until the first bit is not 1
-//          digitalWrite(SILENT, HIGH);
-//          digitalWrite(RED, HIGH);
-//        
-//        }
-//        delay(50); // Additional time to reduce
-//        digitalWrite(SILENT, LOW);
-//        digitalWrite(RED, LOW);
-//        
-//      }
-//    }
-//    if (EFLG_MODE == EFLAG_MODE_OFF) {
-//      if (readREC() >= REC_TRIGGER) {
-//        digitalWrite(SILENT, HIGH);
-//        digitalWrite(RED, HIGH);
-//        while (readREC() >= REC_TRIGGER); //Loop until cleared
-//        delay(5);
-//        digitalWrite(SILENT, LOW);
-//        digitalWrite(RED, LOW);
-//        
-//      }
-//    }
-//
-//    /*
-//       We need to add protections to make sure that in the event that this device is plugged in for
-//       50 days the code does not get stuck. The watchdog timer can also be used to reset the device
-//       with checks to make sure that the code is still functioning. In the event that the code locks
-//       up.
-//    */
-//
-//    /*
-//       We also need to discuss how the REC register will reduce if the silent pin is triggered since
-//       register decrements for successful receives. Or if the methodology needs to be changed.
-//    */
-//  }
-
+  
+  
 }
 
 
