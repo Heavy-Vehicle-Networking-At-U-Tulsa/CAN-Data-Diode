@@ -5,6 +5,30 @@
 #include <EEPROM.h>
 /*************************************************/
 
+/* Watchdog Timer Config */
+#define WDT_8sec        0x21
+#define WDT_4sec        0x20
+#define WDT_2sec        0x07
+#define WDT_1sec        0x06
+
+/* WDT CONF Options */
+#define WDT_INT         0x01
+#define WDT_RESET       0x02
+#define WDT_INT_RESET   0x03
+#define EFLG_MODE       0x00
+#define WDT_SETUP_CONF  0x00
+
+/*USER ADJUSTABLE DEFINES*/
+#define WDT_WAIT_TIME   WDT_8sec
+#define BUS_QUIET_TIME    60000 // milliseconds before invoking the sleep mode.
+#define REC_CHANGE_LIMIT  2     // Number of RX Errors from one cycle to another needed to force silent
+#define REC_LIMIT         50    // Number of RX Error in the counter before pulling the J1939 side silent
+
+/* EEPROM Memory Map */
+/* Note: there are 512 bytes of EEPROM on the attiny861 */
+#define CAN_BAUDRATE  0x00 // Previously stored CAN_Bus Baudrate
+
+
 /* PIN Defines */
 #define GREEN   10 // Pin for the Green LED
 #define RED     14 // Red LED pin
@@ -17,29 +41,6 @@
 //Note: reference https://github.com/SpenceKonde/ATTinyCore#attiny-261461861 for configuring other pins
 
 
-
-
-/* EEPROM Memory Map */
-/* Note: there are 512 bytes of EEPROM on the attiny861 */
-#define CAN_BAUDRATE  0x00 // Previously stored CAN_Bus Baudrate
-#define CAN_MSGCOUNT  0x01 // Amount of messages to be sent
-#define CAN_ID1LSB    0x02 // LSB for request 1
-#define CAN_ID1MSB    0x03 // MSB for request 1
-#define CAN_ID2LSB    0x04 // LSB for request 2
-#define CAN_ID2MSB    0x05 // MSB for request 2
-#define CAN_ID3LSB    0x06 // LSB for request 3
-#define CAN_ID3MSB    0x07 // MSB for request 3
-//0x08-0x20 are reserved for additional request message space.
-#define MAX_REC       0x21 // When to trigger the silent pin on the transceiver.
-#define EFLG          0x22 // Use EFLG Register rather than the REC register for silent detection
-#define WDT_TIME      0x23 // Configuration of the WDT time interval
-#define WDT_CONF      0x24 // Does the user want to set up the device to reset in the event of a code hang up. 
-#define CAN_ID1_int   0x25 // Rate at which CANID1 messages are sent (may be implemented as a method choice)
-#define CAN_ID2_int   0x26 // Rate at which CANID2 messages are sent (may be implemented as a method choice)
-#define CAN_ID3_int   0x27 // Rate at which CANID3 messages are sent (may be implemented as a method choice)
-//0x28 - 0x33 are reserved for additional CAN intervals
-/* Note: there are 512 bytes of EEPROM on the attiny861 */
-
 /* SPI Commands */
 #define RESET            0b11000000
 #define READ_STATUS      0b10100000
@@ -49,6 +50,7 @@
 #define READ_RX_BUFFER_0 0b10010000
 #define READ_RX_BUFFER_1 0b10010100
 
+
 /* Check Receive Possible returns */
 #define CAN_MSGAVAIL       3
 #define CAN_NOMSG          4
@@ -57,6 +59,8 @@
 #define MCP_STAT_RXB_MASK 0b00001110
 #define MCP_STAT_RXB0_INT 0b00001100
 #define MCP_STAT_RXB1_INT 0b00001110
+#define RXB0_INT_FLAG     0x01
+#define RXB1_INT_FLAG     0x02
 
 /* SPI PIN low level defines */
 #define PIN_PB0     0b00000001
@@ -72,6 +76,12 @@
 #define NORMAL_MODE_CLKOUT_2 0b00000101
 #define NORMAL_MODE_CLKOUT_4 0b00000110
 #define NORMAL_MODE_CLKOUT_8 0b00000111
+
+#define SLEEP_MODE           0b00100100 //With clockout enable
+
+/* Command Masks for CAN CTRL Bit Modify */
+#define REQOP_MASK  0b11100000
+
 
 /* CAN SPEED VALUES */
 #define CAN_250KBS  0x12
@@ -115,33 +125,6 @@
 #define RXB1CTRL    0x70
 
 
-/* Watchdog Timer Config */
-#define WDT_8sec        0x21
-#define WDT_4sec        0x20
-#define WDT_2sec        0x07
-#define WDT_1sec        0x06
-
-/* WDT CONF Options */
-#define WDT_INT         0x01
-#define WDT_RESET       0x02
-#define WDT_INT_RESET   0x03
-#define EFLG_MODE       0x00
-#define WDT_WAIT_TIME   WDT_8sec
-uint8_t WDT_SETUP_CONF;
-
-/* ERROR FLAG MODE */
-#define EFLAG_MODE_OFF     0x00
-
-/* Register Masks */
-#define first_bit     0b00000001
-#define second_bit    0b00000010
-#define third_bit     0b00000100
-#define fourth_bit    0b00001000
-#define fifth_bit     0b00010000
-#define sixth_bit     0b00100000
-#define seventh_bit   0b01000000
-#define eighth_bit    0b10000000
-
 /* Watchdog Timer flag */
 volatile bool f_wdt = 1;
 
@@ -153,6 +136,7 @@ uint8_t  buf[13]; //Includes ID DLC and DATA
 
 uint8_t autobaudCan_Val = 0;
 uint8_t can_Val;
+uint8_t previousREC;
 
 /* These are the possible baudrate configurations */
 uint8_t canSpeed[5] = {CAN_250KBS, CAN_500KBS, CAN_125KBS, CAN_666KBS, CAN_1000KBS};
@@ -160,6 +144,7 @@ uint8_t canSpeed[5] = {CAN_250KBS, CAN_500KBS, CAN_125KBS, CAN_666KBS, CAN_1000K
 uint32_t currentMillis;
 uint32_t previousMillis;
 uint32_t previousRECmillis;
+uint32_t previousRXmillis;
 
 uint8_t tick; //one clock signal.
 
@@ -222,43 +207,6 @@ uint8_t SPI_transfer(uint8_t data) {
   return data_in;
 }
 
-/******************************************************
-   Name:        readREC
-   Description: reads the current value in the Receive Error Count Register
- *****************************************************/
-uint8_t readREC() {
-  return readRegister(REC);
-}
-
-/******************************************************
-   Name:        setINT
-   Description: Enable interrupts on the CAN Controller
- *****************************************************/
-uint8_t setINT() {
-  uint8_t ret;
-  digitalWrite(CS, LOW);
-  SPI_transfer(WRITE);
-  SPI_transfer(CANINTE);
-  ret = SPI_transfer(0x03); //sending 00s allows the return data to be built
-  digitalWrite(CS, HIGH);
-  return ret;
-}
-
-
-/******************************************************
-   Name:        resetINT
-   Description: resets the INT pin on the CAN Controller
- *****************************************************/
-uint8_t resetINT() {
-  uint8_t ret;
-  digitalWrite(CS, LOW);
-  SPI_transfer(WRITE);
-  SPI_transfer(0x2C);
-  ret = SPI_transfer(0x00); //sending 00s allows the return data to be built
-  digitalWrite(CS, HIGH);
-  return ret;
-}
-
 
 /******************************************************
    Name:        setRegister
@@ -306,24 +254,24 @@ uint8_t readRegister(uint8_t address){
 void readRXBuffer0(uint8_t *buf){
   digitalWrite(CS, LOW);
   SPI_transfer(READ_RX_BUFFER_0); //Read Receive Buffer 0, start at RXB0SIDH (0x61)
-  for (uint8_t i = 0; i<13; i++){
+  for (uint8_t i = 0; i<13; i++){ // Read 4 ID bytes, 1 DLC byte and the first three data bytes
     buf[i] = SPI_transfer(0x00); //sending 00s allows the return data to be built
   }
   digitalWrite(CS, HIGH); //Pulling pin back high should clear CANINTF
   // Clear flags just in case
-  modifyRegister(CANINTF,0x03,0x00);
+  // modifyRegister(CANINTF,0x03,0x00); //this takes too long
 }
 
 void readRXBuffer1(uint8_t *buf){
   uint8_t ret;
   digitalWrite(CS, LOW);
   SPI_transfer(READ_RX_BUFFER_1); //Read Receive Buffer 1, start at RXB1SIDH (0x71)
-  for (uint8_t i = 0; i<13; i++){
+  for (uint8_t i = 0; i < 8; i++){ // Read 4 ID bytes, 1 DLC byte and the first three data bytes
     buf[i] = SPI_transfer(0x00); //sending 00s allows the return data to be built
   }
   digitalWrite(CS, HIGH); //Pulling pin back high should clear CANINTF
   // Clear flags just in case
-  modifyRegister(CANINTF,0x03,0x00);
+  // modifyRegister(CANINTF,0x03,0x00); //this takes too long
 }
 
 bool checkReceive(){
@@ -402,7 +350,7 @@ uint8_t autobaud() {
   uint32_t previousMillis100 = millis();
   uint32_t previousMillis50000 = millis();
   int current_baud = 0;
-  int lastREC = readREC();
+  int lastREC = readRegister(REC);
 
   //clear all interrupts
   modifyRegister(CANINTF,0xFF, 0x00);
@@ -420,8 +368,8 @@ uint8_t autobaud() {
       if (checkReceive()) { //Checking to see if canBus frames have come onto the bus
         return canSpeed[current_baud];
       }
-      if (lastREC <= readREC()) {
-        lastREC = readREC();
+      if (lastREC <= readRegister(REC)) {
+        lastREC = readRegister(REC);
         break;
       }
     }
@@ -630,10 +578,8 @@ void setupMCP() {
        && can_Val != CAN_666KBS 
        && can_Val != CAN_1000KBS) 
   {
-    can_Val == CAN_250KBS;
+    can_Val = CAN_250KBS;
   }
- 
-  can_Val = CAN_250KBS;
   
   // Set the bit rate configuration registers
   config_Rate(can_Val);
@@ -641,10 +587,10 @@ void setupMCP() {
   // Set into normal mode
   modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1); 
 
-//  autobaudCan_Val = autobaud();
-//  if (autobaudCan_Val != can_Val) {
-//      EEPROM.write(CAN_BAUDRATE, autobaudCan_Val);
-//  }
+  autobaudCan_Val = autobaud();
+  if (autobaudCan_Val != can_Val) {
+      EEPROM.write(CAN_BAUDRATE, autobaudCan_Val);
+  }
  
 }
 
@@ -662,53 +608,87 @@ void setup() {
 
   /*setting initial states*/
   digitalWrite(SILENT, LOW);
-  digitalWrite(GREEN, HIGH) ;
-  digitalWrite(RED, HIGH);
-  digitalWrite(CS, HIGH);
-  digitalWrite(SCK, LOW);
-  digitalWrite(DO, LOW);
+  digitalWrite(GREEN,  HIGH) ;
+  digitalWrite(RED,    HIGH);
+  digitalWrite(CS,     HIGH);
+  digitalWrite(SCK,    LOW);
+  digitalWrite(DO,     LOW);
   
   setupWatchDog();
   
   setupMCP();
 
-
   flash(GREEN);
   flash(RED);
+
+  //Reset all interrupt flags
   modifyRegister(CANINTF,0xFF,0x00);
   
 }
+
+
 
 void loop()
 {
   currentMillis = millis();
 
   // Blink for as long as there are REC Errors
-  uint8_t rec = readREC();
+  uint8_t rec = readRegister(REC); //SPI Commands: 0x03 0x1D 0x00
   if (rec){
+    
+    // If there are enough recieve errors or changes, then suspect conficts with J1939 and silence the diode
+    // to let the ELD traffic talk freely. Toggling silent mode will likely induce errors on switching.
+    if ((rec - previousREC) > REC_CHANGE_LIMIT || rec > REC_LIMIT){
+      digitalWrite(SILENT,HIGH);
+      delay(1); //Quiet the J1939 traffic just a little to let the ELD side for
+      digitalWrite(SILENT,LOW);
+    }
+    
+    // Blink the RED LED to indicate values in the Receive error counter
     if ((currentMillis - previousRECmillis) > rec){
       previousRECmillis = currentMillis;
       RED_STATE = !RED_STATE;
+      digitalWrite(RED, RED_STATE);
     }
   }
   else {
     RED_STATE = 0;
+    digitalWrite(SILENT,LOW);
+    digitalWrite(RED, RED_STATE);
   }
-  digitalWrite(RED, RED_STATE);
-  
 
-  if (readRegister(CANINTF) & 0x01) {
-    readRXBuffer0(buf); // Read RXBuffer0 and clear interrupt flag
-    //modifyRegister(CANINTF,0x01,0x00);
-    GREEN_STATE = !GREEN_STATE;
-  }
-  if (readRegister(CANINTF) & 0x02){
-    readRXBuffer1(buf); // Read RXBuffer1 and clear interrupt flag
-    //modifyRegister(CANINTF,0x02,0x00);
-    GREEN_STATE = !GREEN_STATE;
-  }
-  digitalWrite(GREEN, GREEN_STATE);
+  //Check for messages and blink the green LED.
+  uint8_t RX_interrupt_flag = readRegister(CANINTF); //SPI Commands 0x03 0x2C 0x00
   
+  if (RX_interrupt_flag & RXB0_INT_FLAG) {
+    readRXBuffer0(buf); // Read RXBuffer0 and clear interrupt flag
+    previousRXmillis = currentMillis; //Reset the RX timer
+    GREEN_STATE = !GREEN_STATE;
+    digitalWrite(GREEN, GREEN_STATE);
+  }
+  if (RX_interrupt_flag & RXB1_INT_FLAG){
+    readRXBuffer1(buf); // Read RXBuffer1 and clear interrupt flag
+    previousRXmillis = currentMillis; //Reset the RX timer
+    GREEN_STATE = !GREEN_STATE;
+    digitalWrite(GREEN, GREEN_STATE);
+  }
+
+  if ((currentMillis - previousRXmillis) >= BUS_QUIET_TIME){
+    //sleep mode for MCP25625
+    modifyRegister(CANCTRL, REQOP_MASK, SLEEP_MODE);
+
+    //Throw an indication for entering sleep mode
+    for (uint8_t i=0; i<5; i++){
+      flash(GREEN);
+      flash(RED);
+    }
+    
+    enterSleep();
+    
+    //Finish Sleep mode and go back to normal
+    modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1); 
+    previousRXmillis = millis();
+  }
   
 }
 
