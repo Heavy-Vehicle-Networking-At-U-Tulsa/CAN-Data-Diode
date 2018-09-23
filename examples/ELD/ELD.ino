@@ -99,23 +99,23 @@
 /*CAN Baudrate Configuration values*/
 #define CAN_125KBPS_cfg1 0x43
 #define CAN_125KBPS_cfg2 0xE5
-#define CAN_125KBPS_cfg3 0x83
+#define CAN_125KBPS_cfg3 0x43
 
 #define CAN_250KBPS_cfg1 0x41
 #define CAN_250KBPS_cfg2 0xE5
-#define CAN_250KBPS_cfg3 0x83
+#define CAN_250KBPS_cfg3 0x43
 
 #define CAN_500KBPS_cfg1 0x40
 #define CAN_500KBPS_cfg2 0xE5
-#define CAN_500KBPS_cfg3 0x83
+#define CAN_500KBPS_cfg3 0x43
 
 #define CAN_666KBPS_cfg1 0x40
 #define CAN_666KBPS_cfg2 0xE1
-#define CAN_666KBPS_cfg3 0x83
+#define CAN_666KBPS_cfg3 0x43
 
 #define CAN_1000KBPS_cfg1 0x00
 #define CAN_1000KBPS_cfg2 0xCA
-#define CAN_1000KBPS_cfg3 0x81
+#define CAN_1000KBPS_cfg3 0x41
 
 /* MCP25265 Registers */
 #define REC         0x1D
@@ -259,11 +259,10 @@ void modifyRegister(uint8_t address, uint8_t mask, uint8_t value) {
    Description: Directly writing values to MCP registers.
  *****************************************************/
 uint8_t readRegister(uint8_t address){
-  uint8_t ret;
   digitalWrite(CS, LOW);
   SPI_transfer(READ);
   SPI_transfer(address);
-  ret = SPI_transfer(0x00); //sending 00s allows the return data to be built
+  uint8_t ret = SPI_transfer(0x00); //sending 00s allows the return data to be built
   digitalWrite(CS, HIGH);
   return ret;
 }
@@ -275,7 +274,7 @@ uint8_t readRegister(uint8_t address){
 void readRXBuffer0(uint8_t *buf){
   digitalWrite(CS, LOW);
   SPI_transfer(READ_RX_BUFFER_0); //Read Receive Buffer 0, start at RXB0SIDH (0x61)
-  for (uint8_t i = 0; i<13; i++){ // Read 4 ID bytes, 1 DLC byte and the first three data bytes
+  for (uint8_t i = 0; i<4; i++){ // Read 4 ID bytes, 1 DLC byte and the first three data bytes
     buf[i] = SPI_transfer(0x00); //sending 00s allows the return data to be built
   }
   digitalWrite(CS, HIGH); //Pulling pin back high should clear CANINTF
@@ -287,7 +286,7 @@ void readRXBuffer1(uint8_t *buf){
   uint8_t ret;
   digitalWrite(CS, LOW);
   SPI_transfer(READ_RX_BUFFER_1); //Read Receive Buffer 1, start at RXB1SIDH (0x71)
-  for (uint8_t i = 0; i < 8; i++){ // Read 4 ID bytes, 1 DLC byte and the first three data bytes
+  for (uint8_t i = 0; i < 4; i++){ // Read 4 ID bytes, 1 DLC byte and the first three data bytes
     buf[i] = SPI_transfer(0x00); //sending 00s allows the return data to be built
   }
   digitalWrite(CS, HIGH); //Pulling pin back high should clear CANINTF
@@ -356,7 +355,7 @@ uint8_t config_Rate(uint8_t canSpeed) {
   }
 
   if (sets) {
-    // Must be in config mode first
+     // Must be in config mode first
     setRegister(CFG1_Reg, cfg1);
     setRegister(CFG2_Reg, cfg2);
     setRegister(CFG3_Reg, cfg3);
@@ -382,10 +381,10 @@ uint8_t autobaud() {
   
   while (true) {
      //clear all interrupts
-    modifyRegister(CANINTF,0xFF, 0x00);
+    //modifyRegister(CANINTF,0xFF, 0x00);
     modifyRegister(CANCTRL, 0xFF, CONFIGURE_MODE_CLKOUT_1);
     config_Rate(canSpeed[current_baud]);
-    modifyRegister(CANCTRL, 0xFF, LISTEN_ONLY_MODE);
+    modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1);
     
     // TODO: What happens when installed on a quiet bus?
     // Need to wait a couple minutes, then sleep.
@@ -573,20 +572,25 @@ void setupWatchDog() {
 }
 
 void setupMCP() {
+  
   //Reset the CAN Controller
   digitalWrite(CS, LOW);
   SPI_transfer(RESET); //Reset
   digitalWrite(CS, HIGH);
 
-  delay(10); //allow time to reset
+  delay(1);
+  
+  setRegister(CANCTRL, CONFIGURE_MODE_CLKOUT_1);  
 
-  // Put into 16MHz configure mode
-  modifyRegister(CANCTRL, 0xFF, CONFIGURE_MODE_CLKOUT_1);
-
+  
+  
+  
+ 
+  
   //Turns off masks and filters to receive all in the RX Buffer Control Registers
   setRegister(RXB0CTRL, 0b01100000);
   setRegister(RXB1CTRL, 0b01100000);
-
+  
   //Set Interrupt Enable Register
   // Enable Message Error Inrerrupt (bit 7)
   // Enable Wakeup Interrupt
@@ -597,7 +601,8 @@ void setupMCP() {
   // Enable on Receive Buffer 1
   // Enable on Receive Buffer 0
   modifyRegister(CANINTE, 0xFF, 0b10100011);
-
+  
+  
   /* Pulling EEPROM CONFIG SETTINGS */
   uint8_t can_Val = EEPROM.read(CAN_BAUDRATE); 
 
@@ -613,16 +618,17 @@ void setupMCP() {
   }
   
   // Set the bit rate configuration registers
+
+
   config_Rate(can_Val);
-
-  // Set into normal mode
-  modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1); 
-
   autobaudCan_Val = autobaud();
   if (autobaudCan_Val != can_Val) {
       EEPROM.write(CAN_BAUDRATE, autobaudCan_Val);
   }
- 
+  
+  // Set into normal mode
+  modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1); 
+
 }
 
 void setup() {
@@ -648,15 +654,17 @@ void setup() {
   setupWatchDog();
    
   setupMCP();
-
+  
   flash(GREEN);
   flash(RED);
 
   //Reset all interrupt flags
+
   modifyRegister(CANINTF,0xFF,0x00);
   f_wdt == 1;
   
- 
+
+  
   
 }
 
