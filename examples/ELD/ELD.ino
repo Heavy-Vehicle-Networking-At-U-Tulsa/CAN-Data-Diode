@@ -19,8 +19,8 @@
 #define WDT_SETUP_CONF  0x00
 
 /*USER ADJUSTABLE DEFINES*/
-#define WDT_WAIT_TIME   WDT_8sec
-#define BUS_QUIET_TIME    60000 // milliseconds before invoking the sleep mode.
+#define WDT_WAIT_TIME     WDT_8sec
+#define BUS_QUIET_TIME    5000 // milliseconds before invoking the sleep mode.
 #define REC_CHANGE_LIMIT  2     // Number of RX Errors from one cycle to another needed to force silent
 #define REC_LIMIT         50    // Number of RX Error in the counter before pulling the J1939 side silent
 
@@ -49,7 +49,7 @@
 #define READ             0b00000011
 #define READ_RX_BUFFER_0 0b10010000
 #define READ_RX_BUFFER_1 0b10010100
-
+#define RX_STATUS        0b10110000
 
 /* Check Receive Possible returns */
 #define CAN_MSGAVAIL       3
@@ -61,6 +61,9 @@
 #define MCP_STAT_RXB1_INT 0b00001110
 #define RXB0_INT_FLAG     0x01
 #define RXB1_INT_FLAG     0x02
+
+#define WAKE_INT_FLAG        0b01000000
+#define WAKE_INT_MASK        0b01000000
 
 /* SPI PIN low level defines */
 #define PIN_PB0     0b00000001
@@ -78,10 +81,13 @@
 #define NORMAL_MODE_CLKOUT_8 0b00000111
 
 #define SLEEP_MODE           0b00100100 //With clockout enable
+#define LISTEN_ONLY_MODE     0b01100100 //With clockout enable
 
 /* Command Masks for CAN CTRL Bit Modify */
 #define REQOP_MASK  0b11100000
 
+#define ICOD_MASK  0b00001110
+#define ERROR_FLAG 0b00000010
 
 /* CAN SPEED VALUES */
 #define CAN_250KBS  0x12
@@ -157,9 +163,7 @@ bool RED_STATE;
                  is executed when watchdog timed out.
  ***************************************************/
 ISR(WDT_vect) {
-  if (f_wdt == 0) {
-    f_wdt = 1;
-  }
+  //f_wdt = 1;
 }
 
 /***************************************************
@@ -167,6 +171,9 @@ ISR(WDT_vect) {
     Description: Enters the arduino into sleep mode.
  ***************************************************/
 void enterSleep(void) {
+  //sleep mode for MCP25625
+  modifyRegister(CANCTRL, REQOP_MASK, SLEEP_MODE);
+
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
   sleep_enable();
 
@@ -178,6 +185,20 @@ void enterSleep(void) {
 
   /* Re-enable the peripherals. */
   power_all_enable();
+  
+  delay(5);
+  
+  if (checkReceive()) {
+    f_wdt = 1;
+    modifyRegister(CANINTF,WAKE_INT_MASK,WAKE_INT_FLAG);
+    //Finish Sleep mode and go back to normal
+    modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1); 
+    previousRXmillis = millis();
+  }
+  else{
+    //f_wdt = 0;
+  }
+  
 }
 
 /******************************************************
@@ -274,9 +295,14 @@ void readRXBuffer1(uint8_t *buf){
   // modifyRegister(CANINTF,0x03,0x00); //this takes too long
 }
 
+bool checkError(){
+  uint8_t ret = readRegister(CANSTAT);
+  if ( (ret & ICOD_MASK) == ERROR_FLAG ) return true;
+  else return false;  
+}
+
 bool checkReceive(){
-  uint8_t ret;
-  ret = readRegister(CANINTF) & 0x03;
+  uint8_t ret = readRegister(CANINTF) & 0x03;
   if ( ret > 0 ) return true;
   else return false;  
 }
@@ -349,37 +375,41 @@ uint8_t autobaud() {
 
   uint32_t previousMillis100 = millis();
   uint32_t previousMillis50000 = millis();
-  int current_baud = 0;
-  int lastREC = readRegister(REC);
+  uint8_t current_baud = 0;
+  uint8_t lastREC = readRegister(REC);
 
-  //clear all interrupts
-  modifyRegister(CANINTF,0xFF, 0x00);
+ 
   
   while (true) {
+     //clear all interrupts
+    modifyRegister(CANINTF,0xFF, 0x00);
+    modifyRegister(CANCTRL, 0xFF, CONFIGURE_MODE_CLKOUT_1);
+    config_Rate(canSpeed[current_baud]);
+    modifyRegister(CANCTRL, 0xFF, LISTEN_ONLY_MODE);
+    
     // TODO: What happens when installed on a quiet bus?
     // Need to wait a couple minutes, then sleep.
-    if ((millis() - previousMillis50000) >= 50000){
+    if ((millis() - previousMillis50000) >= 5000){
       previousMillis50000 = millis();
-      //goToSleep();
+      enterSleep();
     }
     
     while ((millis() - previousMillis100) <= 100) {
 
       if (checkReceive()) { //Checking to see if canBus frames have come onto the bus
+        modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1);
         return canSpeed[current_baud];
       }
-      if (lastREC <= readRegister(REC)) {
-        lastREC = readRegister(REC);
+      if (checkError()) {
         break;
       }
     }
+    
     current_baud++;
     if (current_baud >= 5) {
       current_baud = 0;
     }
-    modifyRegister(CANCTRL, 0xFF, CONFIGURE_MODE_CLKOUT_1);
-    config_Rate(canSpeed[current_baud]);
-    modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1);
+    
     previousMillis100 = millis(); // moved this to after the config_Rate to prevent immediate escape of the while loop.
   }
 }
@@ -390,8 +420,9 @@ uint8_t autobaud() {
  *****************************************************/
 void flash(uint8_t led) {
   digitalWrite(led, HIGH);
-  delay(10);
+  delay(20);
   digitalWrite(led, LOW);
+  delay(20);
 }
 
 /******************************************************
@@ -558,8 +589,8 @@ void setupMCP() {
 
   //Set Interrupt Enable Register
   // Enable Message Error Inrerrupt (bit 7)
-  // Disable Wakeup Interrupt
-  // Enable in Error Flag Register Change
+  // Enable Wakeup Interrupt
+  // Disable in Error Flag Register Change
   // Disable on Transmit Buffer 2
   // Disable on Transmit Buffer 1
   // Disable on Transmit Buffer 0
@@ -615,7 +646,7 @@ void setup() {
   digitalWrite(DO,     LOW);
   
   setupWatchDog();
-  
+   
   setupMCP();
 
   flash(GREEN);
@@ -623,73 +654,72 @@ void setup() {
 
   //Reset all interrupt flags
   modifyRegister(CANINTF,0xFF,0x00);
+  f_wdt == 1;
+  
+ 
   
 }
 
 
 
 void loop()
-{
-  currentMillis = millis();
-
-  // Blink for as long as there are REC Errors
-  uint8_t rec = readRegister(REC); //SPI Commands: 0x03 0x1D 0x00
-  if (rec){
-    
-    // If there are enough recieve errors or changes, then suspect conficts with J1939 and silence the diode
-    // to let the ELD traffic talk freely. Toggling silent mode will likely induce errors on switching.
-    if ((rec - previousREC) > REC_CHANGE_LIMIT || rec > REC_LIMIT){
-      digitalWrite(SILENT,HIGH);
-      delay(1); //Quiet the J1939 traffic just a little to let the ELD side for
-      digitalWrite(SILENT,LOW);
-    }
-    
-    // Blink the RED LED to indicate values in the Receive error counter
-    if ((currentMillis - previousRECmillis) > rec){
-      previousRECmillis = currentMillis;
-      RED_STATE = !RED_STATE;
-      digitalWrite(RED, RED_STATE);
-    }
+{ 
+  if (f_wdt == 0){
+    enterSleep();
   }
   else {
-    RED_STATE = 0;
-    digitalWrite(SILENT,LOW);
-    digitalWrite(RED, RED_STATE);
-  }
-
-  //Check for messages and blink the green LED.
-  uint8_t RX_interrupt_flag = readRegister(CANINTF); //SPI Commands 0x03 0x2C 0x00
   
-  if (RX_interrupt_flag & RXB0_INT_FLAG) {
-    readRXBuffer0(buf); // Read RXBuffer0 and clear interrupt flag
-    previousRXmillis = currentMillis; //Reset the RX timer
-    GREEN_STATE = !GREEN_STATE;
-    digitalWrite(GREEN, GREEN_STATE);
-  }
-  if (RX_interrupt_flag & RXB1_INT_FLAG){
-    readRXBuffer1(buf); // Read RXBuffer1 and clear interrupt flag
-    previousRXmillis = currentMillis; //Reset the RX timer
-    GREEN_STATE = !GREEN_STATE;
-    digitalWrite(GREEN, GREEN_STATE);
-  }
-
-  if ((currentMillis - previousRXmillis) >= BUS_QUIET_TIME){
-    //sleep mode for MCP25625
-    modifyRegister(CANCTRL, REQOP_MASK, SLEEP_MODE);
-
-    //Throw an indication for entering sleep mode
-    for (uint8_t i=0; i<5; i++){
-      flash(GREEN);
-      flash(RED);
+    currentMillis = millis();
+    // Blink for as long as there are REC Errors
+    uint8_t rec = readRegister(REC); //SPI Commands: 0x03 0x1D 0x00
+    if (rec){
+      
+      // If there are enough recieve errors or changes, then suspect conficts with J1939 and silence the diode
+      // to let the ELD traffic talk freely. Toggling silent mode will likely induce errors on switching.
+      if ((rec - previousREC) > REC_CHANGE_LIMIT || rec > REC_LIMIT){
+        digitalWrite(SILENT,HIGH);
+        delay(1); //Quiet the J1939 traffic just a little to let the ELD side for
+        digitalWrite(SILENT,LOW);
+      }
+      
+      // Blink the RED LED to indicate values in the Receive error counter
+      if ((currentMillis - previousRECmillis) > rec){
+        previousRECmillis = currentMillis;
+        RED_STATE = !RED_STATE;
+        digitalWrite(RED, RED_STATE);
+      }
     }
-    
-    enterSleep();
-    
-    //Finish Sleep mode and go back to normal
-    modifyRegister(CANCTRL, 0xFF, NORMAL_MODE_CLKOUT_1); 
-    previousRXmillis = millis();
-  }
+    else {
+      RED_STATE = 0;
+      digitalWrite(SILENT,LOW);
+      digitalWrite(RED, RED_STATE);
+    }
   
+    //Check for messages and blink the green LED.
+    uint8_t RX_interrupt_flag = readRegister(CANINTF); //SPI Commands 0x03 0x2C 0x00
+    
+    if (RX_interrupt_flag & RXB0_INT_FLAG) {
+      readRXBuffer0(buf); // Read RXBuffer0 and clear interrupt flag
+      previousRXmillis = currentMillis; //Reset the RX timer
+      GREEN_STATE = !GREEN_STATE;
+      digitalWrite(GREEN, GREEN_STATE);
+    }
+    if (RX_interrupt_flag & RXB1_INT_FLAG){
+      readRXBuffer1(buf); // Read RXBuffer1 and clear interrupt flag
+      previousRXmillis = currentMillis; //Reset the RX timer
+      GREEN_STATE = !GREEN_STATE;
+      digitalWrite(GREEN, GREEN_STATE);
+    }
+  
+    if ((currentMillis - previousRXmillis) >= BUS_QUIET_TIME){
+      f_wdt = 0;
+      //Throw an indication for entering sleep mode
+      for (uint8_t i=0; i<5; i++){
+        flash(GREEN);
+        flash(RED);
+      }
+    }
+  }
 }
 
 
