@@ -1,5 +1,5 @@
-#include <mcp_can.h>
-#include <mcp_can_dfs.h>
+#include <CANDataDiode.h>
+#include <CANDataDiode_dfs.h>
 #include <util/atomic.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
@@ -661,7 +661,7 @@ void loop()
     f_wdt = 0;
 
     //Re-enter sleep mode "Low-Power-Down"
-    enterSleep(); // this will make the device go into a low power mode. 
+    //enterSleep(); // this will make the device go into a low power mode. 
 
     /*
      * We need to add protections to make sure that in the event that this device is plugged in for 
